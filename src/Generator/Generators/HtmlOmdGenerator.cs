@@ -104,13 +104,6 @@ namespace Generator.Generators
                 memberBuilder.AppendLine("</ul>");
             }
 
-             
-
-
-
-
-
-
             sw.WriteLine($"<div class='{kind}HeaderBox{(isEmpty ? " noMembers" : "")}'>");
 
             //Write class name + Inheritance
