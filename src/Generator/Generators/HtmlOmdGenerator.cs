@@ -60,7 +60,7 @@ namespace Generator.Generators
                 if (type.GetConstructors(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Constructors</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='header'>Constructors</span><ul>");
                     foreach (var method in type.GetConstructors(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -73,7 +73,7 @@ namespace Generator.Generators
                 if (type.GetProperties(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Properties</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='header'>Properties</span><ul>");
                     foreach (var method in type.GetProperties(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -86,7 +86,7 @@ namespace Generator.Generators
                 if (type.GetMethods(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Methods</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='header'>Methods</span><ul>");
                     foreach (var method in type.GetMethods(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -99,7 +99,7 @@ namespace Generator.Generators
                 if (type.GetEvents(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Events</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='header'>Events</span><ul>");
                     foreach (var method in type.GetEvents(oldType))
                     {
                         var str = FormatMember(method.Item1);
