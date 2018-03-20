@@ -60,7 +60,7 @@ namespace Generator.Generators
                 if (type.GetConstructors(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Constructors</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><h4>Constructors</h4><ul>");
                     foreach (var method in type.GetConstructors(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -68,12 +68,12 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.GetProperties(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Properties</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><h4>Properties</h4><ul>");
                     foreach (var method in type.GetProperties(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -81,12 +81,12 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.GetMethods(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Methods</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><h4>Methods</h4><ul>");
                     foreach (var method in type.GetMethods(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -94,12 +94,12 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.GetEvents(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Events</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><h4>Events</h4><ul>");
                     foreach (var method in type.GetEvents(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -107,12 +107,12 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.TypeKind == TypeKind.Enum)
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine("<ul>");
+                    memberBuilder.AppendLine("<ul class='members'>");
                     foreach (var e in type.GetEnums(oldType))
                     {
                         string str = Briefify(e);
@@ -121,12 +121,11 @@ namespace Generator.Generators
                     memberBuilder.AppendLine("</ul>");
                 }
             }
-
-            sw.WriteLine($"<div class='{kind}HeaderBox{(isEmpty ? " noMembers" : "")}'>");
+            sw.WriteLine($"<div class='header {kind}{(isEmpty ? " noMembers" : "")}'>");
 
             //Write class name + Inheritance
             var brief = type.GetDescription();
-            sw.Write($"<span class='objectHeader' ");
+            sw.Write($"<span ");
             if (!string.IsNullOrEmpty(brief))
                 sw.Write($"title=\"{System.Web.HttpUtility.HtmlEncode(brief)}\"");
             sw.Write($">{System.Web.HttpUtility.HtmlEncode(type.Name)}");
