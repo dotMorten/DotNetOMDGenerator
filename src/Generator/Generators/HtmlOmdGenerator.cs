@@ -176,7 +176,7 @@ namespace Generator.Generators
             else if (type.DeclaredAccessibility == Accessibility.Private)
                 icon = "priv";
             if (type.Kind == SymbolKind.Method)
-                icon += "event";
+                icon += "method";
             else if (type.Kind == SymbolKind.Property)
                 icon += "property";
             else if (type.Kind == SymbolKind.Field)
