@@ -71,7 +71,7 @@ namespace Generator.Generators
                 foreach (var method in type.GetConstructors())
                 {
                     var str = FormatMember(method);
-                    sw.WriteLine($"<li>{str}</li>");
+                    sw.WriteLine($"{GetIcon(method, str)}");
                 }
                 sw.WriteLine("</ul>");
             }
@@ -81,7 +81,7 @@ namespace Generator.Generators
                 foreach (var method in type.GetProperties())
                 {
                     var str = FormatMember(method);
-                    sw.WriteLine($"<li>{str}</li>");
+                    sw.WriteLine($"{GetIcon(method, str)}");
                 }
                 sw.WriteLine("</ul>");
             }
@@ -91,7 +91,7 @@ namespace Generator.Generators
                 foreach (var method in type.GetMethods())
                 {
                     var str = FormatMember(method);
-                    sw.WriteLine($"<li>{str}</li>");
+                    sw.WriteLine($"{GetIcon(method, str)}");
                 }
                 sw.WriteLine("</ul>");
             }
@@ -101,7 +101,7 @@ namespace Generator.Generators
                 foreach (var method in type.GetEvents())
                 {
                     var str = FormatMember(method);
-                    sw.WriteLine($"<li>{str}</li>");
+                    sw.WriteLine($"{GetIcon(method, str)}");
                 }
                 sw.WriteLine("</ul>");
             }
@@ -111,12 +111,38 @@ namespace Generator.Generators
                 foreach (var e in type.GetEnums())
                 {
                     string str = Briefify(e);
-                    sw.WriteLine($"<li>{str}</li>");
+                    sw.WriteLine($"{GetIcon(e, str)}");
                 }
                 sw.WriteLine("</ul>");
             }
             sw.WriteLine("</div>");
             sw.Flush();
+        }
+
+        private string GetIcon(ISymbol type, string content)
+        {
+            string icon = "";
+            if (type.DeclaredAccessibility == Accessibility.Public)
+                icon = "pub";
+            else if (type.DeclaredAccessibility == Accessibility.Protected)
+                icon = "prot";
+            else if (type.DeclaredAccessibility == Accessibility.Private)
+                icon = "priv";
+            if (type.Kind == SymbolKind.Method)
+                icon += "event";
+            else if (type.Kind == SymbolKind.Property)
+                icon += "property";
+            else if (type.Kind == SymbolKind.Field)
+                icon += "field";
+            else if (type.Kind == SymbolKind.Event)
+                icon += "event";
+            if(type.IsStatic && type.ContainingType?.TypeKind != TypeKind.Enum)
+            {
+                content = "<span class='static'/>" + content;
+            }
+            if (icon == "")
+                return content;
+            return $"<li class='{icon}'>{content}</li>";
         }
 
         public void WriteEnum(INamedTypeSymbol enm)
@@ -171,7 +197,7 @@ namespace Generator.Generators
         private string FormatMember(ISymbol member)
         {
             var brief = member.GetDescription();
-            var name = member.DeclaredAccessibility.ToString().ToLower() + " " + Briefify(member);
+            var name = /* member.DeclaredAccessibility.ToString().ToLower() + " " + */ Briefify(member);
 
             if (member is IPropertySymbol)
             {
