@@ -44,7 +44,67 @@ namespace Generator.Generators
                 sw.WriteLine($"<div class='namespaceHeader' id='{nsname}'>{nsname}</div>");
             }
             sw.WriteLine($"<div class='objectBox' id='{type.GetFullTypeName()}'>");
-            sw.WriteLine($"<div class='{kind}HeaderBox'>");
+            bool isEmpty = true;
+
+            var memberBuilder = new StringBuilder();
+            //List out members
+            if (type.GetConstructors().Any())
+            {
+                isEmpty = false;
+                memberBuilder.AppendLine($"<span class='memberGroup'>Constructors</span><ul>");
+                foreach (var method in type.GetConstructors())
+                {
+                    var str = FormatMember(method);
+                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                }
+                memberBuilder.AppendLine("</ul>");
+            }
+            if (type.GetProperties().Any())
+            {
+                isEmpty = false;
+                memberBuilder.AppendLine($"<span class='memberGroup'>Properties</span><ul>");
+                foreach (var method in type.GetProperties())
+                {
+                    var str = FormatMember(method);
+                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                }
+                memberBuilder.AppendLine("</ul>");
+            }
+            if (type.GetMethods().Any())
+            {
+                isEmpty = false;
+                memberBuilder.AppendLine($"<span class='memberGroup'>Methods</span><ul>");
+                foreach (var method in type.GetMethods())
+                {
+                    var str = FormatMember(method);
+                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                }
+                memberBuilder.AppendLine("</ul>");
+            }
+            if (type.GetEvents().Any())
+            {
+                isEmpty = false;
+                memberBuilder.AppendLine($"<span class='memberGroup'>Events</span><ul>");
+                foreach (var method in type.GetEvents())
+                {
+                    var str = FormatMember(method);
+                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                }
+                memberBuilder.AppendLine("</ul>");
+            }
+            if (type.TypeKind == TypeKind.Enum)
+            {
+                isEmpty = false;
+                memberBuilder.AppendLine("<ul>");
+                foreach (var e in type.GetEnums())
+                {
+                    string str = Briefify(e);
+                    memberBuilder.AppendLine($"{GetIcon(e, str)}");
+                }
+                memberBuilder.AppendLine("</ul>");
+            }
+
+            sw.WriteLine($"<div class='{kind}HeaderBox{(isEmpty ? " noMembers" : "")}'>");
 
             //Write class name + Inheritance
             var brief = type.GetDescription();
@@ -57,66 +117,22 @@ namespace Generator.Generators
                 sw.Write(" : " + FormatType(type.BaseType));
             }
             sw.WriteLine("</span>");
-            
             //Document interfaces
             if (type.GetInterfaces().Any())
-            {                
+            {
+                isEmpty = false;
                 sw.Write("<br/>Implements " + string.Join(", ", type.GetInterfaces().Select(i => FormatType(i))) + "</span>");
             }
             sw.WriteLine("</div>"); //End header box
-            //List out members
-            if (type.GetConstructors().Any())
-            {
-                sw.WriteLine($"<span class='memberGroup'>Constructors</span><ul>");
-                foreach (var method in type.GetConstructors())
-                {
-                    var str = FormatMember(method);
-                    sw.WriteLine($"{GetIcon(method, str)}");
-                }
-                sw.WriteLine("</ul>");
-            }
-            if (type.GetProperties().Any())
-            {
-                sw.WriteLine($"<span class='memberGroup'>Properties</span><ul>");
-                foreach (var method in type.GetProperties())
-                {
-                    var str = FormatMember(method);
-                    sw.WriteLine($"{GetIcon(method, str)}");
-                }
-                sw.WriteLine("</ul>");
-            }
-            if (type.GetMethods().Any())
-            {
-                sw.WriteLine($"<span class='memberGroup'>Methods</span><ul>");
-                foreach (var method in type.GetMethods())
-                {
-                    var str = FormatMember(method);
-                    sw.WriteLine($"{GetIcon(method, str)}");
-                }
-                sw.WriteLine("</ul>");
-            }
-            if (type.GetEvents().Any())
-            {
-                sw.WriteLine($"<span class='memberGroup'>Events</span><ul>");
-                foreach (var method in type.GetEvents())
-                {
-                    var str = FormatMember(method);
-                    sw.WriteLine($"{GetIcon(method, str)}");
-                }
-                sw.WriteLine("</ul>");
-            }
-            if (type.TypeKind == TypeKind.Enum)
-            {
-                sw.WriteLine("<ul>");
-                foreach (var e in type.GetEnums())
-                {
-                    string str = Briefify(e);
-                    sw.WriteLine($"{GetIcon(e, str)}");
-                }
-                sw.WriteLine("</ul>");
-            }
+
+            sw.Write(memberBuilder.ToString());
             sw.WriteLine("</div>");
             sw.Flush();
+        }
+
+        private bool IsTypeEmpty(INamedTypeSymbol type)
+        {
+            throw new NotImplementedException();
         }
 
         private string GetIcon(ISymbol type, string content)
