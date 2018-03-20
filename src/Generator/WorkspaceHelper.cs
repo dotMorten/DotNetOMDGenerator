@@ -21,7 +21,19 @@ namespace Generator
         {
             var compilation = await CreateCompilationAsync(paths);
             Console.WriteLine("Processing types...");
+            var symbols = GetSymbols(compilation);
 
+            generator.Initialize(symbols);
+            foreach (var s in symbols)
+            {
+                GenerateCode(s);
+            }
+            generator.Complete();
+            Console.WriteLine("Complete");
+        }
+
+        private List<INamedTypeSymbol> GetSymbols(Compilation compilation)
+        {
             Action<INamespaceSymbol, List<INamespaceSymbol>> getNamespaces = null;
             getNamespaces = (inss, list) =>
             {
@@ -39,13 +51,7 @@ namespace Generator
                 symbols.AddRange(GetTypes(ns));
             }
             symbols = symbols.OrderBy(t => t.GetFullTypeName()).ToList();
-            generator.Initialize(symbols);
-            foreach (var s in symbols)
-            {
-                GenerateCode(s);
-            }
-            generator.Complete();
-            Console.WriteLine("Complete");
+            return symbols;
         }
 
         private IEnumerable<INamedTypeSymbol> GetTypes(INamespaceSymbol ns)
@@ -101,6 +107,140 @@ namespace Generator
             {
                 LoadFolderDocuments(dir.FullName, ws, projectId);
             }
+        }
+
+
+        //************* Difference comparisons *******************/
+
+
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths)
+        {
+            var oldCompilation = await CreateCompilationAsync(oldPaths);
+            var newCompilation = await CreateCompilationAsync(newPaths);
+            var oldSymbols = GetSymbols(oldCompilation);
+            var newSymbols = GetSymbols(newCompilation);
+            var removedSymbols = oldSymbols.Except(newSymbols, new SymbolNameComparer()).ToList(); //Objects that have been removed
+            var addedSymbols = newSymbols.Except(oldSymbols, new SymbolNameComparer()).ToList(); //Objects that have been added
+            var sameNewSymbols = newSymbols.Intersect(oldSymbols, new SymbolNameComparer()).ToList(); // Objects present before and after
+            var sameOldSymbols = oldSymbols.Intersect(newSymbols, new SymbolNameComparer()).ToList(); // Objects present before and after
+            var changedSymbols = sameNewSymbols.Except(sameOldSymbols, new SymbolMemberComparer()).ToList(); //Objects that have changes
+            var generator = this.generator as ICodeDiffGenerator;
+            generator.Initialize(newSymbols, oldSymbols);
+            foreach (var s in addedSymbols)
+            {
+                GenerateCode(generator, s, null);
+            }
+            foreach (var s in removedSymbols)
+            {
+                GenerateCode(generator, null, s);
+            }
+            foreach (var s in changedSymbols)
+            {
+                var name = s.GetFullTypeName();
+                var oldS = oldSymbols.Where(o => o.GetFullTypeName() == name).First();
+                GenerateCode(generator, s, oldS);
+            }
+            generator.Complete();
+            Console.WriteLine("Complete");
+
+        }
+        private void GenerateCode(ICodeDiffGenerator generator, INamedTypeSymbol type, INamedTypeSymbol oldType)
+        {
+            if (type == null && oldType == null)
+                throw new ArgumentNullException("Both old and new type can't be null");
+            var t = (type ?? oldType);
+            Console.WriteLine(t.GetFullTypeName());
+            if (t.TypeKind == TypeKind.Enum)
+                generator.WriteEnum(type, oldType);
+            else if (t.TypeKind == TypeKind.Interface)
+                generator.WriteInterface(type, oldType);
+            else if (t.TypeKind == TypeKind.Class || t.TypeKind == TypeKind.Struct)
+                generator.WriteClass(type, oldType);
+            else
+            {
+                Console.WriteLine("****TODO**** ERROR: No generator for type " + t.GetFullTypeName() + " of kind " + t.TypeKind.ToString());
+            }
+        }
+        internal class SymbolNameComparer : IEqualityComparer<INamedTypeSymbol>
+        {
+            internal static SymbolNameComparer Comparer = new SymbolNameComparer();
+            public bool Equals(INamedTypeSymbol x, INamedTypeSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
+            public int GetHashCode(INamedTypeSymbol obj) => obj.ToDisplayString().GetHashCode();
+        }
+
+        private class SymbolMemberComparer : IEqualityComparer<INamedTypeSymbol>
+        {
+            public bool Equals(INamedTypeSymbol x, INamedTypeSymbol y)
+            {
+                if (x.BaseType?.ToDisplayString() != y.BaseType?.ToDisplayString())
+                    return false; // Inheritance changed
+
+                var ifacesNew = x.GetInterfaces();
+                var ifacesOld = y.GetInterfaces();
+                if (ifacesNew.Count() != ifacesOld.Count()) return false;
+
+                // Compare member count
+                var constructorsNew = x.GetConstructors();
+                var constructorsOld = y.GetConstructors();
+                if (constructorsNew.Count() != constructorsOld.Count()) return false;
+
+                var propsNew = x.GetProperties();
+                var propsOld = y.GetProperties();
+                if (propsNew.Count() != propsOld.Count()) return false;
+
+                var methodsNew = x.GetMethods();
+                var methodsOld = y.GetMethods();
+                if (methodsNew.Count() != methodsOld.Count()) return false;
+
+                var eventsNew = x.GetEvents();
+                var eventsOld = y.GetEvents();
+                if (eventsNew.Count() != eventsOld.Count()) return false;
+
+                if (ifacesNew.Except(ifacesOld, SymbolNameComparer.Comparer).Any() ||
+                    ifacesOld.Except(ifacesNew, SymbolNameComparer.Comparer).Any())
+                    return false;
+
+                if (propsNew.Except(propsOld, PropertyComparer.Comparer).Any() ||
+                   propsOld.Except(propsNew, PropertyComparer.Comparer).Any())
+                    return false;
+
+                if (constructorsNew.Except(constructorsOld, MethodComparer.Comparer).Any() ||
+                   constructorsOld.Except(constructorsNew, MethodComparer.Comparer).Any())
+                    return false;
+
+                if (propsNew.Except(propsOld, PropertyComparer.Comparer).Any() ||
+                   propsOld.Except(propsNew, PropertyComparer.Comparer).Any())
+                    return false;
+
+                if (methodsNew.Except(methodsOld, MethodComparer.Comparer).Any() ||
+                   methodsOld.Except(methodsNew, MethodComparer.Comparer).Any())
+                    return false;
+
+                if (eventsNew.Except(eventsOld, EventComparer.Comparer).Any() ||
+                   eventsOld.Except(eventsNew, EventComparer.Comparer).Any())
+                    return false;
+                return true;
+            }
+            public int GetHashCode(INamedTypeSymbol obj) => obj.GetFullTypeName().GetHashCode();
+        }
+
+        internal class PropertyComparer : IEqualityComparer<IPropertySymbol>
+        {
+            internal static PropertyComparer Comparer = new PropertyComparer();
+            public bool Equals(IPropertySymbol x, IPropertySymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
+            public int GetHashCode(IPropertySymbol obj) => obj.ToDisplayString().GetHashCode();
+        }
+        internal class MethodComparer : IEqualityComparer<IMethodSymbol>
+        {
+            public static MethodComparer Comparer = new MethodComparer();
+            public bool Equals(IMethodSymbol x, IMethodSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
+            public int GetHashCode(IMethodSymbol obj) => obj.ToDisplayString().GetHashCode();
+        }
+        internal class EventComparer : IEqualityComparer<IEventSymbol>
+        {
+            public static EventComparer Comparer = new EventComparer();
+            public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
+            public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString().GetHashCode();
         }
     }
 }

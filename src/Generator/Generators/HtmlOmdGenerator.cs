@@ -6,15 +6,18 @@ using Microsoft.CodeAnalysis;
 
 namespace Generator.Generators
 {
-    internal class HtmlOmdGenerator : ICodeGenerator
+    internal class HtmlOmdGenerator : ICodeGenerator, ICodeDiffGenerator
     {
         private System.IO.StreamWriter sw;
         private List<INamedTypeSymbol> allSymbols;
+        private List<INamedTypeSymbol> oldSymbols;
         private INamespaceSymbol currentNamespace;
 
-        public void Initialize(List<INamedTypeSymbol> allSymbols)
+        public void Initialize(List<INamedTypeSymbol> allSymbols) => Initialize(allSymbols, null);
+        public void Initialize(List<INamedTypeSymbol> allSymbols, List<INamedTypeSymbol> oldSymbols)
         {
             this.allSymbols = allSymbols;
+            this.oldSymbols = oldSymbols;
             sw = new System.IO.StreamWriter("OMDs.html");
             using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdHeader.html"))
             {
@@ -30,78 +33,93 @@ namespace Generator.Generators
             sw.Dispose();
         }
 
-        public void WriteClass(INamedTypeSymbol type)
+        public void WriteClass(INamedTypeSymbol type) => WriteClass(type, null);
+
+        public void WriteClass(INamedTypeSymbol type, INamedTypeSymbol oldType = null)
         {
-            WriteType(type, type.TypeKind.ToString().ToLower());
+            WriteType(type, (type ?? oldType).TypeKind.ToString().ToLower(), oldType);
         }
 
-        public void WriteType(INamedTypeSymbol type, string kind)
+        public void WriteType(INamedTypeSymbol type, string kind, INamedTypeSymbol oldType)
         {
+            bool isTypeRemoved = type == null && oldType != null;
+            if (isTypeRemoved)
+                type = oldType;
+
             if (type.ContainingNamespace != currentNamespace)
             {
                 var nsname = type.GetFullNamespace();
                 currentNamespace = type.ContainingNamespace;
                 sw.WriteLine($"<div class='namespaceHeader' id='{nsname}'>{nsname}</div>");
             }
-            sw.WriteLine($"<div class='objectBox' id='{type.GetFullTypeName()}'>");
+            sw.WriteLine($"<div class='objectBox {(isTypeRemoved ? " typeRemoved'" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;
-
             var memberBuilder = new StringBuilder();
-            //List out members
-            if (type.GetConstructors().Any())
             {
-                isEmpty = false;
-                memberBuilder.AppendLine($"<span class='memberGroup'>Constructors</span><ul>");
-                foreach (var method in type.GetConstructors())
+                //List out members
+                if (type.GetConstructors(oldType).Any())
                 {
-                    var str = FormatMember(method);
-                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                    isEmpty = false;
+                    memberBuilder.AppendLine($"<span class='memberGroup'>Constructors</span><ul>");
+                    foreach (var method in type.GetConstructors(oldType))
+                    {
+                        var str = FormatMember(method.Item1);
+                        if (method.Item2)
+                            str = $"<span class='memberRemoved'>{str}</span>";
+                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                    }
+                    memberBuilder.AppendLine("</ul>");
                 }
-                memberBuilder.AppendLine("</ul>");
-            }
-            if (type.GetProperties().Any())
-            {
-                isEmpty = false;
-                memberBuilder.AppendLine($"<span class='memberGroup'>Properties</span><ul>");
-                foreach (var method in type.GetProperties())
+                if (type.GetProperties(oldType).Any())
                 {
-                    var str = FormatMember(method);
-                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                    isEmpty = false;
+                    memberBuilder.AppendLine($"<span class='memberGroup'>Properties</span><ul>");
+                    foreach (var method in type.GetProperties(oldType))
+                    {
+                        var str = FormatMember(method.Item1);
+                        if (method.Item2)
+                            str = $"<span class='memberRemoved'>{str}</span>";
+                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                    }
+                    memberBuilder.AppendLine("</ul>");
                 }
-                memberBuilder.AppendLine("</ul>");
-            }
-            if (type.GetMethods().Any())
-            {
-                isEmpty = false;
-                memberBuilder.AppendLine($"<span class='memberGroup'>Methods</span><ul>");
-                foreach (var method in type.GetMethods())
+                if (type.GetMethods(oldType).Any())
                 {
-                    var str = FormatMember(method);
-                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                    isEmpty = false;
+                    memberBuilder.AppendLine($"<span class='memberGroup'>Methods</span><ul>");
+                    foreach (var method in type.GetMethods(oldType))
+                    {
+                        var str = FormatMember(method.Item1);
+                        if (method.Item2)
+                            str = $"<span class='memberRemoved'>{str}</span>";
+                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                    }
+                    memberBuilder.AppendLine("</ul>");
                 }
-                memberBuilder.AppendLine("</ul>");
-            }
-            if (type.GetEvents().Any())
-            {
-                isEmpty = false;
-                memberBuilder.AppendLine($"<span class='memberGroup'>Events</span><ul>");
-                foreach (var method in type.GetEvents())
+                if (type.GetEvents(oldType).Any())
                 {
-                    var str = FormatMember(method);
-                    memberBuilder.AppendLine($"{GetIcon(method, str)}");
+                    isEmpty = false;
+                    memberBuilder.AppendLine($"<span class='memberGroup'>Events</span><ul>");
+                    foreach (var method in type.GetEvents(oldType))
+                    {
+                        var str = FormatMember(method.Item1);
+                        if (method.Item2)
+                            str = $"<span class='memberRemoved'>{str}</span>";
+                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                    }
+                    memberBuilder.AppendLine("</ul>");
                 }
-                memberBuilder.AppendLine("</ul>");
-            }
-            if (type.TypeKind == TypeKind.Enum)
-            {
-                isEmpty = false;
-                memberBuilder.AppendLine("<ul>");
-                foreach (var e in type.GetEnums())
+                if (type.TypeKind == TypeKind.Enum)
                 {
-                    string str = Briefify(e);
-                    memberBuilder.AppendLine($"{GetIcon(e, str)}");
+                    isEmpty = false;
+                    memberBuilder.AppendLine("<ul>");
+                    foreach (var e in type.GetEnums(oldType))
+                    {
+                        string str = Briefify(e);
+                        memberBuilder.AppendLine($"{GetIcon(e, str)}");
+                    }
+                    memberBuilder.AppendLine("</ul>");
                 }
-                memberBuilder.AppendLine("</ul>");
             }
             sw.WriteLine($"<div class='header {kind}{(isEmpty ? " noMembers" : "")}'>");
 
@@ -113,25 +131,39 @@ namespace Generator.Generators
             sw.Write($">{System.Web.HttpUtility.HtmlEncode(type.Name)}");
             if (type.BaseType != null && type.BaseType.Name != "Object" && type.TypeKind != TypeKind.Enum)
             {
-                sw.Write(" : " + FormatType(type.BaseType));
+                if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
+                {
+                    sw.Write(" : ");
+                    if (oldType != null)
+                    {
+                        sw.Write($"<span class='memberRemoved'>{FormatType(oldType.BaseType)}</span>");
+                    }
+                    sw.Write(FormatType(type.BaseType));
+                }
             }
             sw.WriteLine("</span>");
             //Document interfaces
-            if (type.GetInterfaces().Any())
+            if (type.GetInterfaces(oldType).Any())
             {
                 isEmpty = false;
-                sw.Write("<br/>Implements " + string.Join(", ", type.GetInterfaces().Select(i => FormatType(i))) + "</span>");
+                sw.Write("<br/>Implements ");
+                int i = 0;
+                foreach(var iface in type.GetInterfaces(oldType))
+                {
+                    if (i > 0)
+                        sw.Write(", ");
+                    if (iface.Item2) sw.Write("<span class='typeRemoved'>");
+                    sw.Write(FormatType(iface.Item1));
+                    if (iface.Item2) sw.Write("</span>");
+                    i++;
+                }
+                sw.WriteLine("</span>");
             }
             sw.WriteLine("</div>"); //End header box
 
             sw.Write(memberBuilder.ToString());
             sw.WriteLine("</div>");
             sw.Flush();
-        }
-
-        private bool IsTypeEmpty(INamedTypeSymbol type)
-        {
-            throw new NotImplementedException();
         }
 
         private string GetIcon(ISymbol type, string content)
@@ -160,14 +192,16 @@ namespace Generator.Generators
             return $"<li class='{icon}'>{content}</li>";
         }
 
-        public void WriteEnum(INamedTypeSymbol enm)
+        public void WriteEnum(INamedTypeSymbol enm) => WriteEnum(enm, null);
+        public void WriteEnum(INamedTypeSymbol enm, INamedTypeSymbol oldType = null)
         {
-            WriteType(enm, "enum");
+            WriteType(enm, "enum", oldType);
         }
 
-        public void WriteInterface(INamedTypeSymbol iface)
+        public void WriteInterface(INamedTypeSymbol iface) => WriteInterface(iface, null);
+        public void WriteInterface(INamedTypeSymbol iface, INamedTypeSymbol oldType = null)
         {
-            WriteType(iface, "interface");
+            WriteType(iface, "interface", oldType);
         }
 
         private string FormatType(ITypeSymbol type)
