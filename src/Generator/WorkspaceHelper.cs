@@ -126,14 +126,17 @@ namespace Generator
             var changedSymbols = sameNewSymbols.Except(sameOldSymbols, new SymbolMemberComparer()).ToList(); //Objects that have changes
             var generator = this.generator as ICodeDiffGenerator;
             generator.Initialize(newSymbols, oldSymbols);
+            Console.WriteLine("Processing new symbols...");
             foreach (var s in addedSymbols)
             {
                 GenerateCode(generator, s, null);
             }
+            Console.WriteLine("Processing removed symbols...");
             foreach (var s in removedSymbols)
             {
                 GenerateCode(generator, null, s);
             }
+            Console.WriteLine("Processing changed symbols...");
             foreach (var s in changedSymbols)
             {
                 var name = s.GetFullTypeName();
@@ -172,6 +175,8 @@ namespace Generator
         {
             public bool Equals(INamedTypeSymbol x, INamedTypeSymbol y)
             {
+                //TODO: Also change base types. It's ok to move members up the hiarchy
+
                 if (x.BaseType?.ToDisplayString() != y.BaseType?.ToDisplayString())
                     return false; // Inheritance changed
 
