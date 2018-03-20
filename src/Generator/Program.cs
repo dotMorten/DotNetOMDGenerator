@@ -56,7 +56,7 @@ namespace Generator
 
         private static void WriteUsage()
         {
-            Console.WriteLine("\nUage parameters:");
+            Console.WriteLine("\nUsage parameters:");
             Console.WriteLine("dotnet GENERATOR.dll /source=[source folder] /format=[html|image] /ShowPrivate /ShowInternal");
             Console.WriteLine("  source        Specifies the folder of source files to include for the object model.\n                Separate with | for multiple folders");
             Console.WriteLine("  format        Format to generate: 'image' generates an image for each object.\n                'html' a single html output (html is default)");
