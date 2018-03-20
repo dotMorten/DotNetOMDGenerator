@@ -48,13 +48,13 @@ namespace Generator
             }
             GeneratorSettings.ShowPrivateMembers = arg.ContainsKey("ShowPrivate");
             GeneratorSettings.ShowInternalMembers = arg.ContainsKey("ShowInternal");
-            var source = arg["source"];
-            var oldSource = arg.ContainsKey("compareSource") ? arg["compareSource"] : null;
+            string[] source = arg["source"].Split('|');
+            string[] oldSource = arg.ContainsKey("compareSource") ? arg["compareSource"].Split('|') : null;
             var g = new Generator(generator);
             if (oldSource != null)
-                g.ProcessDiffs(oldSource.Split('|'), source.Split('|')).Wait();
+                g.ProcessDiffs(oldSource, source).Wait();
             else
-                g.Process(source.Split('|')).Wait();
+                g.Process(source).Wait();
 
             Console.ReadKey();
         }
