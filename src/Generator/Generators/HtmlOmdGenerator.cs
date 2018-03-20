@@ -60,7 +60,7 @@ namespace Generator.Generators
                 if (type.GetConstructors(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Constructors</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Constructors</span><ul>");
                     foreach (var method in type.GetConstructors(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -68,12 +68,12 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.GetProperties(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Properties</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Properties</span><ul>");
                     foreach (var method in type.GetProperties(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -81,12 +81,12 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.GetMethods(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Methods</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Methods</span><ul>");
                     foreach (var method in type.GetMethods(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -94,12 +94,12 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.GetEvents(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<span class='memberGroup'>Events</span><ul>");
+                    memberBuilder.AppendLine($"<div class='members'><span class='memberGroup'>Events</span><ul>");
                     foreach (var method in type.GetEvents(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -107,7 +107,7 @@ namespace Generator.Generators
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
                     }
-                    memberBuilder.AppendLine("</ul>");
+                    memberBuilder.AppendLine("</ul></div>");
                 }
                 if (type.TypeKind == TypeKind.Enum)
                 {
