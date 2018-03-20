@@ -1,4 +1,5 @@
-.NET Object Model Diagram Generator
+# .NET Object Model Diagram Generator
+
 A cross-platform Roslyn-based tool that generates an object model diagram of a set of C# source files 
 
 ### Usage:
