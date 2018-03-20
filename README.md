@@ -1,5 +1,5 @@
 # DotNetOMDGenerator
-A tool that generates an object model diagram of a set of C# source files.
+A cross-platform tool that generates an object model diagram for a set of C# source files.
 
 ### Usage:
 ```
