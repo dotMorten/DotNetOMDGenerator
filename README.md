@@ -15,4 +15,4 @@ dotnet GENERATOR.dll /source=[source folder] /format=[html|image] /ShowPrivate /
 
 An example of a generated output for all of .NET Core can be found [here](http://www.sharpgis.net/Tests/corefx.html).
 
-![Screenshot](Screenshot.png)
+[![Screenshot](Screenshot.png)](http://www.sharpgis.net/Tests/corefx.html)
