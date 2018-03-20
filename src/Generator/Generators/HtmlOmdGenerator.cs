@@ -152,7 +152,7 @@ namespace Generator.Generators
                 {
                     if (i > 0)
                         sw.Write(", ");
-                    if (iface.Item2) sw.Write("<span class='typeRemoved'>");
+                    if (iface.Item2) sw.Write("<span class='memberRemoved'>");
                     sw.Write(FormatType(iface.Item1));
                     if (iface.Item2) sw.Write("</span>");
                     i++;
