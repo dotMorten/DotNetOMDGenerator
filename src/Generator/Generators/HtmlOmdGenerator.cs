@@ -130,11 +130,6 @@ namespace Generator.Generators
             sw.Flush();
         }
 
-        private bool IsTypeEmpty(INamedTypeSymbol type)
-        {
-            throw new NotImplementedException();
-        }
-
         private string GetIcon(ISymbol type, string content)
         {
             string icon = "";
