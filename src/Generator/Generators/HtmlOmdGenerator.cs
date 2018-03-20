@@ -10,6 +10,7 @@ namespace Generator.Generators
     {
         private System.IO.StreamWriter sw;
         private List<INamedTypeSymbol> allSymbols;
+        private INamespaceSymbol currentNamespace;
 
         public void Initialize(List<INamedTypeSymbol> allSymbols)
         {
@@ -36,11 +37,15 @@ namespace Generator.Generators
 
         public void WriteType(INamedTypeSymbol type, string kind)
         {
+            if (type.ContainingNamespace != currentNamespace)
+            {
+                var nsname = type.GetFullNamespace();
+                currentNamespace = type.ContainingNamespace;
+                sw.WriteLine($"<div class='namespaceHeader' id='{nsname}'>{nsname}</div>");
+            }
             sw.WriteLine($"<div class='objectBox' id='{type.GetFullTypeName()}'>");
             sw.WriteLine($"<div class='{kind}HeaderBox'>");
-            var ns = type.GetFullNamespace();
-            if(!string.IsNullOrEmpty(ns))
-                sw.WriteLine($"<span>{type.GetFullNamespace()}</span><br/>"); //namespace
+
             //Write class name + Inheritance
             var brief = type.GetDescription();
             sw.Write($"<span class='objectHeader' ");

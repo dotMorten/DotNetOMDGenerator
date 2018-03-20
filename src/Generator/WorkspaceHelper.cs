@@ -38,7 +38,7 @@ namespace Generator
             {
                 symbols.AddRange(GetTypes(ns));
             }
-            symbols = symbols.OrderBy(t => t.Name).ToList();
+            symbols = symbols.OrderBy(t => t.GetFullTypeName()).ToList();
             generator.Initialize(symbols);
             foreach (var s in symbols)
             {
