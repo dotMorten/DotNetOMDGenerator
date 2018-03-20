@@ -112,7 +112,7 @@ namespace Generator.Generators
                 if (type.TypeKind == TypeKind.Enum)
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine("<ul>");
+                    memberBuilder.AppendLine("<ul class='members'>");
                     foreach (var e in type.GetEnums(oldType))
                     {
                         string str = Briefify(e);
