@@ -111,11 +111,11 @@ namespace Generator.Generators
 
 
 
-            sw.WriteLine($"<div class='{kind}HeaderBox{(isEmpty ? " noMembers" : "")}'>");
+            sw.WriteLine($"<div class='header {kind}{(isEmpty ? " noMembers" : "")}'>");
 
             //Write class name + Inheritance
             var brief = type.GetDescription();
-            sw.Write($"<span class='objectHeader' ");
+            sw.Write($"<span ");
             if (!string.IsNullOrEmpty(brief))
                 sw.Write($"title=\"{System.Web.HttpUtility.HtmlEncode(brief)}\"");
             sw.Write($">{System.Web.HttpUtility.HtmlEncode(type.Name)}");
