@@ -27,6 +27,8 @@ namespace Generator.Generators
 
         public void Complete()
         {
+            sw.WriteLine("<br/><br/><hr style=\"clear:both;\"/>");
+            sw.WriteLine("Generated with <a href=\"https://github.com/dotMorten/DotNetOMDGenerator\">.NET Code Object Model Generator</a><br/><br/>");
             sw.WriteLine("</body>\n</html>");
             sw.Flush();
             sw.Close();
