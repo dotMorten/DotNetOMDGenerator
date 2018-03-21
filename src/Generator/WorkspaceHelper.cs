@@ -37,7 +37,7 @@ namespace Generator
             Action<INamespaceSymbol, List<INamespaceSymbol>> getNamespaces = null;
             getNamespaces = (inss, list) =>
             {
-                foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>())
+                foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>().Where(n=>n.Locations.Any(l=>l.Kind == LocationKind.SourceFile)))
                 {
                     list.Add(childNs);
                     getNamespaces(childNs, list);
