@@ -56,7 +56,9 @@ namespace Generator
         {
             if (type.TypeKind == TypeKind.Delegate)
                 return Enumerable.Empty<IMethodSymbol>();
-            return type.GetAllMembers().OfType<IMethodSymbol>().Where(m => m.CanBeReferencedByName);
+            return type.GetAllMembers().OfType<IMethodSymbol>()
+                .Where(m => m.CanBeReferencedByName)
+                .OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))).OrderBy(m=>m.Name);
         }
 
         public static IEnumerable<Tuple<IMethodSymbol, bool>> GetMethods(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -72,7 +74,7 @@ namespace Generator
 
         public static IEnumerable<IPropertySymbol> GetProperties(this INamedTypeSymbol type)
         {
-            return type.GetAllMembers().OfType<IPropertySymbol>().Where(m => m.CanBeReferencedByName);
+            return type.GetAllMembers().OfType<IPropertySymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m=>m.Name);
         }
 
         public static IEnumerable<Tuple<IPropertySymbol, bool>> GetProperties(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -85,8 +87,7 @@ namespace Generator
                 .Union(oldProps.Except(newProps, Generator.PropertyComparer.Comparer).Select(p => new Tuple<IPropertySymbol, bool>(p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
-
-
+        
         public static IEnumerable<INamedTypeSymbol> GetInterfaces(this INamedTypeSymbol type)
         {
             IEnumerable<INamedTypeSymbol> i = type.Interfaces;
@@ -134,7 +135,7 @@ namespace Generator
         }
         public static IEnumerable<IEventSymbol> GetEvents(this INamedTypeSymbol type)
         {
-            return type.GetAllMembers().OfType<IEventSymbol>().Where(m => m.CanBeReferencedByName);
+            return type.GetAllMembers().OfType<IEventSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
         public static IEnumerable<Tuple<IEventSymbol, bool>> GetEvents(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -147,6 +148,7 @@ namespace Generator
                 .Union(oldMembers.Except(newMembers, Generator.EventComparer.Comparer).Select(p => new Tuple<IEventSymbol, bool>(p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
+
         public static IEnumerable<IMethodSymbol> GetConstructors(this INamedTypeSymbol type)
         {
             if (type.TypeKind == TypeKind.Enum)
@@ -156,7 +158,7 @@ namespace Generator
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private);
             if (!GeneratorSettings.ShowInternalMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Internal);
-            return members;
+            return members.OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name)));
         }
 
         public static IEnumerable<Tuple<IMethodSymbol, bool>> GetConstructors(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -174,7 +176,7 @@ namespace Generator
         {
             if (type.TypeKind != TypeKind.Enum)
                 return new IFieldSymbol[] { };
-            return type.GetAllMembers().OfType<IFieldSymbol>();
+            return type.GetAllMembers().OfType<IFieldSymbol>().OrderBy(f => f.ConstantValue);
         }
 
         public static IEnumerable<Tuple<IFieldSymbol, bool>> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)
