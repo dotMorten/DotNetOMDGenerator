@@ -44,7 +44,7 @@ namespace Generator
 
         private static IEnumerable<ISymbol> GetAllMembers(this INamedTypeSymbol type)
         {
-            IEnumerable<ISymbol> members = type.GetMembers();
+            IEnumerable<ISymbol> members = type.GetMembers().Where(m => !m.IsOverride);
             if (!GeneratorSettings.ShowPrivateMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private);
             if (!GeneratorSettings.ShowInternalMembers)
