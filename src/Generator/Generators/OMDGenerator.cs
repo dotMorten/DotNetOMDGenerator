@@ -23,6 +23,7 @@ namespace Generator.Generators
 
         public void WriteClass(INamedTypeSymbol type) =>RenderOMD(type);
 
+        public void WriteDelegate(INamedTypeSymbol type) => RenderOMD(type);
         public void WriteEnum(INamedTypeSymbol enm) => RenderOMD(enm);
 
         public void WriteInterface(INamedTypeSymbol iface) => RenderOMD(iface);

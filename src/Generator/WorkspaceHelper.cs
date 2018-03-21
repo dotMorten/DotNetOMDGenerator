@@ -75,6 +75,8 @@ namespace Generator
                 generator.WriteInterface(type);
             else if (type.TypeKind == TypeKind.Class || type.TypeKind == TypeKind.Struct)
                 generator.WriteClass(type);
+            else if (type.TypeKind == TypeKind.Delegate)
+                generator.WriteDelegate(type);
             else
             {
                 Console.WriteLine("****TODO**** ERROR: No generator for type " + type.GetFullTypeName() + " of kind " + type.TypeKind.ToString());
@@ -158,6 +160,8 @@ namespace Generator
                 generator.WriteInterface(type, oldType);
             else if (t.TypeKind == TypeKind.Class || t.TypeKind == TypeKind.Struct)
                 generator.WriteClass(type, oldType);
+            else if (t.TypeKind == TypeKind.Delegate)
+                generator.WriteDelegate(type, oldType);
             else
             {
                 Console.WriteLine("****TODO**** ERROR: No generator for type " + t.GetFullTypeName() + " of kind " + t.TypeKind.ToString());

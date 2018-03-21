@@ -14,6 +14,7 @@ namespace Generator
         void WriteInterface(INamedTypeSymbol iface);
 
         void WriteEnum(INamedTypeSymbol enm);
+        void WriteDelegate(INamedTypeSymbol type);
         void Complete();
     }
     interface ICodeDiffGenerator
@@ -25,6 +26,9 @@ namespace Generator
         void WriteInterface(INamedTypeSymbol iface, INamedTypeSymbol oldIface);
 
         void WriteEnum(INamedTypeSymbol enm, INamedTypeSymbol oldEnm);
+
+        void WriteDelegate(INamedTypeSymbol del, INamedTypeSymbol oldDel);
+
         void Complete();
     }
 }

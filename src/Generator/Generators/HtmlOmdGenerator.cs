@@ -60,7 +60,11 @@ namespace Generator.Generators
                 if (type.GetConstructors(oldType).Any())
                 {
                     isEmpty = false;
-                    memberBuilder.AppendLine($"<div class='members'><h4>Constructors</h4><ul>");
+
+                    memberBuilder.AppendLine($"<div class='members'>");
+                    if (type.TypeKind != TypeKind.Delegate)
+                        memberBuilder.AppendLine($"<h4>Constructors</h4>");
+                    memberBuilder.AppendLine($"<ul>");
                     foreach (var method in type.GetConstructors(oldType))
                     {
                         var str = FormatMember(method.Item1);
@@ -204,6 +208,12 @@ namespace Generator.Generators
         public void WriteInterface(INamedTypeSymbol iface, INamedTypeSymbol oldType = null)
         {
             WriteType(iface, "interface", oldType);
+        }
+        public void WriteDelegate(INamedTypeSymbol del) => WriteDelegate(del, null);
+
+        public void WriteDelegate(INamedTypeSymbol del, INamedTypeSymbol oldDel = null)
+        {
+            WriteType(del, "delegate", oldDel);
         }
 
         private string FormatType(ITypeSymbol type)

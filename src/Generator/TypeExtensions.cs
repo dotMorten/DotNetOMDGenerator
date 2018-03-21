@@ -54,6 +54,8 @@ namespace Generator
 
         public static IEnumerable<IMethodSymbol> GetMethods(this INamedTypeSymbol type)
         {
+            if (type.TypeKind == TypeKind.Delegate)
+                return Enumerable.Empty<IMethodSymbol>();
             return type.GetAllMembers().OfType<IMethodSymbol>().Where(m => m.CanBeReferencedByName);
         }
 
