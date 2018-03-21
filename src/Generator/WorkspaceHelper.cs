@@ -178,8 +178,7 @@ namespace Generator
         {
             public bool Equals(INamedTypeSymbol x, INamedTypeSymbol y)
             {
-                //TODO: Also change base types. It's ok to move members up the hiarchy
-
+                //TODO: Also check base types. It's ok to move members up the hiarchy
                 if (x.BaseType?.ToDisplayString() != y.BaseType?.ToDisplayString())
                     return false; // Inheritance changed
 
