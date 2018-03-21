@@ -11,7 +11,7 @@ namespace Generator.Generators
         private System.IO.StreamWriter sw;
         private List<INamedTypeSymbol> allSymbols;
         private List<INamedTypeSymbol> oldSymbols;
-        private INamespaceSymbol currentNamespace;
+        private string currentNamespace;
 
         public void Initialize(List<INamedTypeSymbol> allSymbols) => Initialize(allSymbols, null);
         public void Initialize(List<INamedTypeSymbol> allSymbols, List<INamedTypeSymbol> oldSymbols)
@@ -46,10 +46,10 @@ namespace Generator.Generators
             if (isTypeRemoved)
                 type = oldType;
 
-            if (type.ContainingNamespace != currentNamespace)
+            var nsname = type.GetFullNamespace();
+            if (nsname != currentNamespace)
             {
-                var nsname = type.GetFullNamespace();
-                currentNamespace = type.ContainingNamespace;
+                currentNamespace = nsname;
                 sw.WriteLine($"<div class='namespaceHeader' id='{nsname}'>{nsname}</div>");
             }
             sw.WriteLine($"<div class='objectBox {(isTypeRemoved ? " typeRemoved'" : "")}' id='{type.GetFullTypeName()}'>");
@@ -115,8 +115,10 @@ namespace Generator.Generators
                     memberBuilder.AppendLine("<ul class='members'>");
                     foreach (var e in type.GetEnums(oldType))
                     {
-                        string str = Briefify(e);
-                        memberBuilder.AppendLine($"{GetIcon(e, str)}");
+                        string str = Briefify(e.Item1) + " = " + e.Item1.ConstantValue.ToString();
+                        if (e.Item2)
+                            str = $"<span class='memberRemoved'>{str}</span>";
+                        memberBuilder.AppendLine($"{GetIcon(e.Item1, str)}");
                     }
                     memberBuilder.AppendLine("</ul>");
                 }
@@ -246,7 +248,12 @@ namespace Generator.Generators
         private string FormatMember(ISymbol member)
         {
             var brief = member.GetDescription();
-            var name = /* member.DeclaredAccessibility.ToString().ToLower() + " " + */ Briefify(member);
+            var name = member.Name;
+            if (name == ".ctor")
+            {
+                name = member.ContainingType.Name;
+            }
+            name = Briefify(member, name);
 
             if (member is IPropertySymbol)
             {

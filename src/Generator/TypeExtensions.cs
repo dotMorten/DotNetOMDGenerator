@@ -147,7 +147,9 @@ namespace Generator
         }
         public static IEnumerable<IMethodSymbol> GetConstructors(this INamedTypeSymbol type)
         {
-            var members = type.Constructors.Where(c=>c.CanBeReferencedByName);
+            if (type.TypeKind == TypeKind.Enum)
+                return Enumerable.Empty<IMethodSymbol>();
+            IEnumerable<IMethodSymbol> members = type.Constructors; //.Where(c=>c.CanBeReferencedByName);
             if (!GeneratorSettings.ShowPrivateMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private);
             if (!GeneratorSettings.ShowInternalMembers)
@@ -166,18 +168,22 @@ namespace Generator
                 .OrderBy(t => t.Item1.Name);
         }
 
-        public static IEnumerable<ISymbol> GetEnums(this INamedTypeSymbol type)
+        public static IEnumerable<IFieldSymbol> GetEnums(this INamedTypeSymbol type)
         {
             if (type.TypeKind != TypeKind.Enum)
-                return new ISymbol[] { };
-            return type.GetAllMembers().Where(m => m.Kind == SymbolKind.Field);
+                return new IFieldSymbol[] { };
+            return type.GetAllMembers().OfType<IFieldSymbol>();
         }
 
-        public static IEnumerable<ISymbol> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<Tuple<IFieldSymbol, bool>> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetEnums(type ?? oldType);
-            return GetEnums(type ?? oldType); //TODO
+                return GetEnums(type ?? oldType).Select(p => new Tuple<IFieldSymbol, bool>(p, type == null));
+            var newMembers = GetEnums(type);
+            var oldMembers = GetEnums(oldType);
+            return newMembers.Except(oldMembers, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, false))
+                .Union(oldMembers.Except(newMembers, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, true)))
+                .OrderBy(t => t.Item1.Name);
         }
 
         public static string GetFullTypeName(this ITypeSymbol type)

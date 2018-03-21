@@ -93,7 +93,9 @@ namespace Generator
             foreach (var path in paths)
                 LoadFolderDocuments(path, ws, projectInfo.Id);
             Console.WriteLine("Compiling...");
-            return ws.CurrentSolution.Projects.Single().GetCompilationAsync();
+            var metaref = MetadataReference.CreateFromFile(@"c:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll");
+            var project = ws.CurrentSolution.Projects.Single().AddMetadataReference(metaref);
+            return project.GetCompilationAsync();
         }
 
         private void LoadFolderDocuments(string folderName, AdhocWorkspace ws, ProjectId projectId)
@@ -126,23 +128,20 @@ namespace Generator
             var changedSymbols = sameNewSymbols.Except(sameOldSymbols, new SymbolMemberComparer()).ToList(); //Objects that have changes
             var generator = this.generator as ICodeDiffGenerator;
             generator.Initialize(newSymbols, oldSymbols);
-            Console.WriteLine("Processing new symbols...");
+            List<Tuple<INamedTypeSymbol, INamedTypeSymbol>> symbols = new List<Tuple<INamedTypeSymbol, INamedTypeSymbol>>();
             foreach (var s in addedSymbols)
-            {
-                GenerateCode(generator, s, null);
-            }
-            Console.WriteLine("Processing removed symbols...");
+                symbols.Add(new Tuple<INamedTypeSymbol, INamedTypeSymbol>(s, null));
             foreach (var s in removedSymbols)
-            {
-                GenerateCode(generator, null, s);
-            }
-            Console.WriteLine("Processing changed symbols...");
+                symbols.Add(new Tuple<INamedTypeSymbol, INamedTypeSymbol>(null, s));
             foreach (var s in changedSymbols)
             {
                 var name = s.GetFullTypeName();
                 var oldS = oldSymbols.Where(o => o.GetFullTypeName() == name).First();
-                GenerateCode(generator, s, oldS);
+                symbols.Add(new Tuple<INamedTypeSymbol, INamedTypeSymbol>(s, oldS));
             }
+            foreach(var s in symbols.OrderBy(s=> (s.Item1??s.Item2).GetFullTypeName()))
+                GenerateCode(generator, s.Item1, s.Item2);
+
             generator.Complete();
             Console.WriteLine("Complete");
 
@@ -201,6 +200,10 @@ namespace Generator
                 var eventsOld = y.GetEvents();
                 if (eventsNew.Count() != eventsOld.Count()) return false;
 
+                var fieldsNew = x.GetEnums();
+                var fieldsOld = y.GetEnums();
+                if (fieldsNew.Count() != fieldsOld.Count()) return false;
+
                 if (ifacesNew.Except(ifacesOld, SymbolNameComparer.Comparer).Any() ||
                     ifacesOld.Except(ifacesNew, SymbolNameComparer.Comparer).Any())
                     return false;
@@ -224,6 +227,10 @@ namespace Generator
                 if (eventsNew.Except(eventsOld, EventComparer.Comparer).Any() ||
                    eventsOld.Except(eventsNew, EventComparer.Comparer).Any())
                     return false;
+
+                if (fieldsNew.Except(fieldsOld, FieldComparer.Comparer).Any() ||
+                   fieldsOld.Except(fieldsNew, FieldComparer.Comparer).Any())
+                    return false;
                 return true;
             }
             public int GetHashCode(INamedTypeSymbol obj) => obj.GetFullTypeName().GetHashCode();
@@ -246,6 +253,12 @@ namespace Generator
             public static EventComparer Comparer = new EventComparer();
             public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
             public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString().GetHashCode();
+        }
+        internal class FieldComparer : IEqualityComparer<IFieldSymbol>
+        {
+            public static FieldComparer Comparer = new FieldComparer();
+            public bool Equals(IFieldSymbol x, IFieldSymbol y) => (x.ToDisplayString() + "=" + x.ConstantValue?.ToString()).Equals((y.ToDisplayString() + "=" + y.ConstantValue?.ToString()));
+            public int GetHashCode(IFieldSymbol obj) => obj.ToDisplayString().GetHashCode();
         }
     }
 }
