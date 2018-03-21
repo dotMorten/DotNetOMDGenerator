@@ -95,8 +95,13 @@ namespace Generator
             foreach (var path in paths)
                 LoadFolderDocuments(path, ws, projectInfo.Id);
             Console.WriteLine("Compiling...");
-            var metaref = MetadataReference.CreateFromFile(@"c:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll");
-            var project = ws.CurrentSolution.Projects.Single().AddMetadataReference(metaref);
+            string mscorlib = @"c:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll";
+            var project = ws.CurrentSolution.Projects.Single();
+            if (File.Exists(mscorlib))
+            {
+                var metaref = MetadataReference.CreateFromFile(mscorlib);
+                project = project.AddMetadataReference(metaref);
+            }
             return project.GetCompilationAsync();
         }
 
