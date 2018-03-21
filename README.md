@@ -15,4 +15,6 @@ dotnet GENERATOR.dll /source=[source folder] /format=[html|image] /ShowPrivate /
 
 An example of a generated output for all of .NET Core can be found [here](http://www.sharpgis.net/Tests/corefx.html).
 
+It can also be used to compare two folders (for instance two separate branches) and only show changes to the API. [Here's an example of .NET CoreFX v2.0 vs Master](http://www.sharpgis.net/Tests/corefx_new.html).
+
 [![Screenshot](Screenshot.png)](http://www.sharpgis.net/Tests/corefx.html)
