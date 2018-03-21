@@ -27,6 +27,11 @@ namespace Generator.Generators
 
         public void Complete()
         {
+            if (currentNamespace != null)
+            {
+                //close the last namespace section
+                sw.WriteLine("</details>");
+            }
             sw.WriteLine("<br/><br/><hr style=\"clear:both;\"/>");
             sw.WriteLine("Generated with <a href=\"https://github.com/dotMorten/DotNetOMDGenerator\">.NET Code Object Model Generator</a><br/><br/>");
             sw.WriteLine("</body>\n</html>");
@@ -63,8 +68,14 @@ namespace Generator.Generators
             var nsname = type.GetFullNamespace();
             if (nsname != currentNamespace)
             {
+                if(currentNamespace != null)
+                {
+                    //close the current namespace section
+                    sw.WriteLine("</details>");
+                }
+                sw.WriteLine("<details open>");
                 currentNamespace = nsname;
-                sw.WriteLine($"<div class='namespaceHeader' id='{nsname}'>{nsname}</div>");
+                sw.WriteLine($"<summary id='{nsname}'>{nsname}</summary>");
             }
             sw.WriteLine($"<div class='objectBox {(isTypeRemoved ? " typeRemoved'" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;
