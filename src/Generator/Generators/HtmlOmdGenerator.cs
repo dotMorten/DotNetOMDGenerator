@@ -146,7 +146,9 @@ namespace Generator.Generators
                     memberBuilder.AppendLine("<ul class='members'>");
                     foreach (var e in type.GetEnums(oldType))
                     {
-                        string str = Briefify(e.Item1) + " = " + e.Item1.ConstantValue.ToString();
+                        string str = Briefify(e.Item1);
+                        if(e.Item1.HasConstantValue)
+                            str += " = " + e.Item1.ConstantValue?.ToString();
                         if (e.Item2)
                             str = $"<span class='memberRemoved'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(e.Item1, str)}");
