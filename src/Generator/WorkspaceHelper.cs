@@ -17,9 +17,9 @@ namespace Generator
             this.generator = generator;
         }
 
-        internal async Task Process(params string[] paths)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null)
         {
-            var compilation = await CreateCompilationAsync(paths);
+            var compilation = await CreateCompilationAsync(paths, preprocessors);
             Console.WriteLine("Processing types...");
             var symbols = GetSymbols(compilation);
 
@@ -83,7 +83,7 @@ namespace Generator
             }
         }
 
-        internal Task<Compilation> CreateCompilationAsync(params string[] paths)
+        internal Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null)
         {
             Console.WriteLine("Creating workspace...");
 
@@ -99,9 +99,11 @@ namespace Generator
             var project = ws.CurrentSolution.Projects.Single();
             if (File.Exists(mscorlib))
             {
+                project = project.WithParseOptions(new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
                 var metaref = MetadataReference.CreateFromFile(mscorlib);
                 project = project.AddMetadataReference(metaref);
             }
+            
             return project.GetCompilationAsync();
         }
 
@@ -122,10 +124,10 @@ namespace Generator
         //************* Difference comparisons *******************/
 
 
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null)
         {
-            var oldCompilation = await CreateCompilationAsync(oldPaths);
-            var newCompilation = await CreateCompilationAsync(newPaths);
+            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors);
+            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors);
             var oldSymbols = GetSymbols(oldCompilation);
             var newSymbols = GetSymbols(newCompilation);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);

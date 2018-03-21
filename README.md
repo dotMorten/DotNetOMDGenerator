@@ -4,11 +4,18 @@ A cross-platform Roslyn-based tool that generates an object model diagram of a s
 
 ### Usage:
 ```
-dotnet GENERATOR.dll /source=[source folder] /format=[html|image] /ShowPrivate /ShowInternal
+dotnet GENERATOR.dll /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /format=[html|image] /ShowPrivate /ShowInternal
+
+Required parameters:
   source        Specifies the folder of source files to include for the object model.
-                Separate with | for multiple folders
+                Separate with ; for multiple folders
+
+Optional parameters:
+  compareSource Specifies a folder to compare source and generate a diff model
+                This can be useful for finding API changes or compare branches
   format        Format to generate: 'image' generates an image for each object.
                 'html' a single html output (html is default)
+  preprocessors Define a set of preprocessors values. Use ; to separate multiple
   ShowPrivate   Show private members (default is false)
   ShowInternal  Show internal members (default is false)
 ```
