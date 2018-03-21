@@ -81,10 +81,10 @@ namespace Generator.Generators
                     memberBuilder.AppendLine($"<ul>");
                     foreach (var method in type.GetConstructors(oldType))
                     {
-                        var str = FormatMember(method.Item1);
-                        if (method.Item2)
+                        var str = FormatMember(method.symbol);
+                        if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
-                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                        memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
@@ -94,10 +94,10 @@ namespace Generator.Generators
                     memberBuilder.AppendLine($"<div class='members'><h4>Properties</h4><ul>");
                     foreach (var method in type.GetProperties(oldType))
                     {
-                        var str = FormatMember(method.Item1);
-                        if (method.Item2)
+                        var str = FormatMember(method.symbol);
+                        if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
-                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                        memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
@@ -107,10 +107,10 @@ namespace Generator.Generators
                     memberBuilder.AppendLine($"<div class='members'><h4>Methods</h4><ul>");
                     foreach (var method in type.GetMethods(oldType))
                     {
-                        var str = FormatMember(method.Item1);
-                        if (method.Item2)
+                        var str = FormatMember(method.symbol);
+                        if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
-                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                        memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
@@ -120,10 +120,10 @@ namespace Generator.Generators
                     memberBuilder.AppendLine($"<div class='members'><h4>Events</h4><ul>");
                     foreach (var method in type.GetEvents(oldType))
                     {
-                        var str = FormatMember(method.Item1);
-                        if (method.Item2)
+                        var str = FormatMember(method.symbol);
+                        if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
-                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                        memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
@@ -133,10 +133,10 @@ namespace Generator.Generators
                     memberBuilder.AppendLine($"<div class='members'><h4>Fields</h4><ul>");
                     foreach (var method in type.GetFields(oldType))
                     {
-                        var str = FormatMember(method.Item1);
-                        if (method.Item2)
+                        var str = FormatMember(method.symbol);
+                        if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
-                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                        memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
@@ -146,12 +146,12 @@ namespace Generator.Generators
                     memberBuilder.AppendLine("<ul class='members'>");
                     foreach (var e in type.GetEnums(oldType))
                     {
-                        string str = Briefify(e.Item1);
-                        if(e.Item1.HasConstantValue)
-                            str += " = " + e.Item1.ConstantValue?.ToString();
-                        if (e.Item2)
+                        string str = Briefify(e.symbol);
+                        if(e.symbol.HasConstantValue)
+                            str += " = " + e.symbol.ConstantValue?.ToString();
+                        if (e.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
-                        memberBuilder.AppendLine($"{GetIcon(e.Item1, str)}");
+                        memberBuilder.AppendLine($"{GetIcon(e.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul>");
                 }
@@ -196,9 +196,9 @@ namespace Generator.Generators
                 {
                     if (i > 0)
                         sw.Write(", ");
-                    if (iface.Item2) sw.Write("<span class='memberRemoved'>");
-                    sw.Write(FormatType(iface.Item1));
-                    if (iface.Item2) sw.Write("</span>");
+                    if (iface.wasRemoved) sw.Write("<span class='memberRemoved'>");
+                    sw.Write(FormatType(iface.symbol));
+                    if (iface.wasRemoved) sw.Write("</span>");
                     i++;
                 }
                 sw.WriteLine("</span>");

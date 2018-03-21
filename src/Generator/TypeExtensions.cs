@@ -71,14 +71,14 @@ namespace Generator
                 .OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))).OrderBy(m=>m.Name);
         }
 
-        public static IEnumerable<Tuple<IMethodSymbol, bool>> GetMethods(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved)> GetMethods(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetMethods(type ?? oldType).Select(p => new Tuple<IMethodSymbol, bool>(p, type == null));
+                return GetMethods(type ?? oldType).Select(p => (p, type == null));
             var newMembers = GetMethods(type);
             var oldMembers = GetMethods(oldType);
-            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => new Tuple<IMethodSymbol, bool>(p, false))
-                .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => new Tuple<IMethodSymbol, bool>(p, true)))
+            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false))
+                .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -87,14 +87,14 @@ namespace Generator
             return type.GetAllMembers().OfType<IPropertySymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m=>m.Name);
         }
 
-        public static IEnumerable<Tuple<IPropertySymbol, bool>> GetProperties(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IPropertySymbol symbol, bool wasRemoved)> GetProperties(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetProperties(type ?? oldType).Select(p=>new Tuple<IPropertySymbol, bool>(p, type == null));
+                return GetProperties(type ?? oldType).Select(p=>(p, type == null));
             var newProps = GetProperties(type);
             var oldProps = GetProperties(oldType);
-            return newProps.Except(oldProps, Generator.PropertyComparer.Comparer).Select(p => new Tuple<IPropertySymbol, bool>(p, false))
-                .Union(oldProps.Except(newProps, Generator.PropertyComparer.Comparer).Select(p => new Tuple<IPropertySymbol, bool>(p, true)))
+            return newProps.Except(oldProps, Generator.PropertyComparer.Comparer).Select(p => (p, false))
+                .Union(oldProps.Except(newProps, Generator.PropertyComparer.Comparer).Select(p => (p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -103,17 +103,17 @@ namespace Generator
             return type.GetAllMembers().OfType<IFieldSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
-        public static IEnumerable<Tuple<IFieldSymbol, bool>> GetFields(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved)> GetFields(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (type.TypeKind == TypeKind.Enum)
-                return Enumerable.Empty<Tuple<IFieldSymbol, bool>>();
+                return Enumerable.Empty<(IFieldSymbol symbol, bool wasRemoved)> ();
 
             if (oldType == null || type == null)
-                return GetFields(type ?? oldType).Select(p => new Tuple<IFieldSymbol, bool>(p, type == null));
+                return GetFields(type ?? oldType).Select(p => (p, type == null));
             var newProps = GetFields(type);
             var oldProps = GetFields(oldType);
-            return newProps.Except(oldProps, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, false))
-                .Union(oldProps.Except(newProps, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, true)))
+            return newProps.Except(oldProps, Generator.FieldComparer.Comparer).Select(p => (p, false))
+                .Union(oldProps.Except(newProps, Generator.FieldComparer.Comparer).Select(p => (p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -127,14 +127,14 @@ namespace Generator
             return i;
         }
 
-        public static IEnumerable<Tuple<INamedTypeSymbol, bool>> GetInterfaces(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(INamedTypeSymbol symbol, bool wasRemoved)> GetInterfaces(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetInterfaces(type ?? oldType).Select(p => new Tuple<INamedTypeSymbol, bool>(p, type == null));
+                return GetInterfaces(type ?? oldType).Select(p => (p, type == null));
             var newMembers = GetInterfaces(type);
             var oldMembers = GetInterfaces(oldType);
-            return newMembers.Except(oldMembers, Generator.SymbolNameComparer.Comparer).Select(p => new Tuple<INamedTypeSymbol, bool>(p, false))
-                .Union(oldMembers.Except(newMembers, Generator.SymbolNameComparer.Comparer).Select(p => new Tuple<INamedTypeSymbol, bool>(p, true)))
+            return newMembers.Except(oldMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, false))
+                .Union(oldMembers.Except(newMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -167,14 +167,14 @@ namespace Generator
             return type.GetAllMembers().OfType<IEventSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
-        public static IEnumerable<Tuple<IEventSymbol, bool>> GetEvents(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IEventSymbol symbol, bool wasRemoved)> GetEvents(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetEvents(type ?? oldType).Select(p => new Tuple<IEventSymbol, bool>(p, type == null));
+                return GetEvents(type ?? oldType).Select(p => (p, type == null));
             var newMembers = GetEvents(type);
             var oldMembers = GetEvents(oldType);
-            return newMembers.Except(oldMembers, Generator.EventComparer.Comparer).Select(p => new Tuple<IEventSymbol, bool>(p, false))
-                .Union(oldMembers.Except(newMembers, Generator.EventComparer.Comparer).Select(p => new Tuple<IEventSymbol, bool>(p, true)))
+            return newMembers.Except(oldMembers, Generator.EventComparer.Comparer).Select(p => (p, false))
+                .Union(oldMembers.Except(newMembers, Generator.EventComparer.Comparer).Select(p => (p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -190,14 +190,14 @@ namespace Generator
             return members.OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name)));
         }
 
-        public static IEnumerable<Tuple<IMethodSymbol, bool>> GetConstructors(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved)> GetConstructors(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetConstructors(type ?? oldType).Select(p => new Tuple<IMethodSymbol, bool>(p, type == null));
+                return GetConstructors(type ?? oldType).Select(p => (p, type == null));
             var newMembers = GetConstructors(type);
             var oldMembers = GetConstructors(oldType);
-            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => new Tuple<IMethodSymbol, bool>(p, false))
-                .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => new Tuple<IMethodSymbol, bool>(p, true)))
+            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false))
+                .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -208,14 +208,14 @@ namespace Generator
             return type.GetAllMembers().OfType<IFieldSymbol>().OrderBy(f => f.ConstantValue);
         }
 
-        public static IEnumerable<Tuple<IFieldSymbol, bool>> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved)> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetEnums(type ?? oldType).Select(p => new Tuple<IFieldSymbol, bool>(p, type == null));
+                return GetEnums(type ?? oldType).Select(p => (p, type == null));
             var newMembers = GetEnums(type);
             var oldMembers = GetEnums(oldType);
-            return newMembers.Except(oldMembers, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, false))
-                .Union(oldMembers.Except(newMembers, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, true)))
+            return newMembers.Except(oldMembers, Generator.FieldComparer.Comparer).Select(p => (p, false))
+                .Union(oldMembers.Except(newMembers, Generator.FieldComparer.Comparer).Select(p => (p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
 
