@@ -39,14 +39,26 @@ namespace Generator.Generators
 
         public void WriteClass(INamedTypeSymbol type, INamedTypeSymbol oldType = null)
         {
-            WriteType(type, (type ?? oldType).TypeKind.ToString().ToLower(), oldType);
+            WriteType(type, oldType);
         }
 
-        public void WriteType(INamedTypeSymbol type, string kind, INamedTypeSymbol oldType)
+        public void WriteType(INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             bool isTypeRemoved = type == null && oldType != null;
             if (isTypeRemoved)
                 type = oldType;
+
+            string kind = "";
+            switch (type.TypeKind)
+            {
+                case TypeKind.Struct:
+                case TypeKind.Class: kind = "class"; break;
+                case TypeKind.Delegate: kind = "delegate"; break;
+                case TypeKind.Enum: kind = "enum"; break;
+                case TypeKind.Interface: kind = "interface"; break;
+                default:
+                    return; //Not supported
+            }
 
             var nsname = type.GetFullNamespace();
             if (nsname != currentNamespace)
@@ -142,6 +154,14 @@ namespace Generator.Generators
                     memberBuilder.AppendLine("</ul>");
                 }
             }
+
+            var symbols = Generator.GetChangedSymbols(
+                type == oldType ? Enumerable.Empty<INamedTypeSymbol>() : type.GetAllNestedTypes(),
+                oldType == null ? Enumerable.Empty<INamedTypeSymbol>() : oldType.GetAllNestedTypes());
+            if (isEmpty && symbols.Any())
+            {
+                isEmpty = false;
+            }
             sw.WriteLine($"<div class='header {kind}{(isEmpty ? " noMembers" : "")}'>");
 
             //Write class name + Inheritance
@@ -163,6 +183,7 @@ namespace Generator.Generators
                 }
             }
             sw.WriteLine("</span>");
+
             //Document interfaces
             if (type.GetInterfaces(oldType).Any())
             {
@@ -183,6 +204,16 @@ namespace Generator.Generators
             sw.WriteLine("</div>"); //End header box
 
             sw.Write(memberBuilder.ToString());
+
+            if (symbols.Any())
+            {
+                sw.WriteLine($"<div class='members'><h4>Nested Types</h4></div>");
+                foreach (var t in symbols)
+                {
+                    WriteType(t.newSymbol, t.oldSymbol);
+                }
+            }
+
             sw.WriteLine("</div>");
             sw.Flush();
         }
@@ -216,19 +247,19 @@ namespace Generator.Generators
         public void WriteEnum(INamedTypeSymbol enm) => WriteEnum(enm, null);
         public void WriteEnum(INamedTypeSymbol enm, INamedTypeSymbol oldType = null)
         {
-            WriteType(enm, "enum", oldType);
+            WriteType(enm, oldType);
         }
 
         public void WriteInterface(INamedTypeSymbol iface) => WriteInterface(iface, null);
         public void WriteInterface(INamedTypeSymbol iface, INamedTypeSymbol oldType = null)
         {
-            WriteType(iface, "interface", oldType);
+            WriteType(iface, oldType);
         }
         public void WriteDelegate(INamedTypeSymbol del) => WriteDelegate(del, null);
 
         public void WriteDelegate(INamedTypeSymbol del, INamedTypeSymbol oldDel = null)
         {
-            WriteType(del, "delegate", oldDel);
+            WriteType(del, oldDel);
         }
 
         private string FormatType(ITypeSymbol type)

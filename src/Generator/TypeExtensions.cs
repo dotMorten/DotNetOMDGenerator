@@ -51,6 +51,16 @@ namespace Generator
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Internal);
             return members;
         }
+        internal static IEnumerable<INamedTypeSymbol> GetAllNestedTypes(this INamedTypeSymbol type)
+        {
+            if (type == null) return Enumerable.Empty<INamedTypeSymbol>();
+            IEnumerable<INamedTypeSymbol> members = type.GetTypeMembers();
+            if (!GeneratorSettings.ShowPrivateMembers)
+                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private);
+            if (!GeneratorSettings.ShowInternalMembers)
+                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Internal);
+            return members;
+        }
 
         public static IEnumerable<IMethodSymbol> GetMethods(this INamedTypeSymbol type)
         {

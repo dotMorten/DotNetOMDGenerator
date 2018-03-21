@@ -123,30 +123,39 @@ namespace Generator
             var newCompilation = await CreateCompilationAsync(newPaths);
             var oldSymbols = GetSymbols(oldCompilation);
             var newSymbols = GetSymbols(newCompilation);
+            var symbols = GetChangedSymbols(newSymbols, oldSymbols);
+            var generator = this.generator as ICodeDiffGenerator;
+            generator.Initialize(newSymbols, oldSymbols);
+            int i = 0;
+            foreach (var s in symbols)
+            {
+                GenerateCode(generator, s.newSymbol, s.oldSymbol);
+                i++;
+            }
+            generator.Complete();
+
+            Console.WriteLine($"Complete. {i} symbols with changes found");
+        }
+
+        internal static IEnumerable<(INamedTypeSymbol newSymbol, INamedTypeSymbol oldSymbol)> GetChangedSymbols(IEnumerable<INamedTypeSymbol> newSymbols, IEnumerable<INamedTypeSymbol> oldSymbols)
+        {
             var removedSymbols = oldSymbols.Except(newSymbols, new SymbolNameComparer()).ToList(); //Objects that have been removed
             var addedSymbols = newSymbols.Except(oldSymbols, new SymbolNameComparer()).ToList(); //Objects that have been added
             var sameNewSymbols = newSymbols.Intersect(oldSymbols, new SymbolNameComparer()).ToList(); // Objects present before and after
             var sameOldSymbols = oldSymbols.Intersect(newSymbols, new SymbolNameComparer()).ToList(); // Objects present before and after
             var changedSymbols = sameNewSymbols.Except(sameOldSymbols, new SymbolMemberComparer()).ToList(); //Objects that have changes
-            var generator = this.generator as ICodeDiffGenerator;
-            generator.Initialize(newSymbols, oldSymbols);
-            List<Tuple<INamedTypeSymbol, INamedTypeSymbol>> symbols = new List<Tuple<INamedTypeSymbol, INamedTypeSymbol>>();
+            List<(INamedTypeSymbol newSymbol, INamedTypeSymbol oldSymbol)> symbols = new List<(INamedTypeSymbol newSymbol, INamedTypeSymbol oldSymbol)>();
             foreach (var s in addedSymbols)
-                symbols.Add(new Tuple<INamedTypeSymbol, INamedTypeSymbol>(s, null));
+                symbols.Add((s, null));
             foreach (var s in removedSymbols)
-                symbols.Add(new Tuple<INamedTypeSymbol, INamedTypeSymbol>(null, s));
+                symbols.Add((null, s));
             foreach (var s in changedSymbols)
             {
                 var name = s.GetFullTypeName();
                 var oldS = oldSymbols.Where(o => o.GetFullTypeName() == name).First();
-                symbols.Add(new Tuple<INamedTypeSymbol, INamedTypeSymbol>(s, oldS));
+                symbols.Add((s, oldS));
             }
-            foreach(var s in symbols.OrderBy(s=> (s.Item1??s.Item2).GetFullTypeName()))
-                GenerateCode(generator, s.Item1, s.Item2);
-
-            generator.Complete();
-            Console.WriteLine("Complete");
-
+            return symbols.OrderBy(s => (s.Item1 ?? s.Item2).GetFullTypeName());
         }
         private void GenerateCode(ICodeDiffGenerator generator, INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
