@@ -87,7 +87,26 @@ namespace Generator
                 .Union(oldProps.Except(newProps, Generator.PropertyComparer.Comparer).Select(p => new Tuple<IPropertySymbol, bool>(p, true)))
                 .OrderBy(t => t.Item1.Name);
         }
-        
+
+        public static IEnumerable<IFieldSymbol> GetFields(this INamedTypeSymbol type)
+        {
+            return type.GetAllMembers().OfType<IFieldSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
+        }
+
+        public static IEnumerable<Tuple<IFieldSymbol, bool>> GetFields(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        {
+            if (type.TypeKind == TypeKind.Enum)
+                return Enumerable.Empty<Tuple<IFieldSymbol, bool>>();
+
+            if (oldType == null || type == null)
+                return GetFields(type ?? oldType).Select(p => new Tuple<IFieldSymbol, bool>(p, type == null));
+            var newProps = GetFields(type);
+            var oldProps = GetFields(oldType);
+            return newProps.Except(oldProps, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, false))
+                .Union(oldProps.Except(newProps, Generator.FieldComparer.Comparer).Select(p => new Tuple<IFieldSymbol, bool>(p, true)))
+                .OrderBy(t => t.Item1.Name);
+        }
+
         public static IEnumerable<INamedTypeSymbol> GetInterfaces(this INamedTypeSymbol type)
         {
             IEnumerable<INamedTypeSymbol> i = type.Interfaces;

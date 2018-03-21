@@ -115,6 +115,19 @@ namespace Generator.Generators
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
+                if (type.GetFields(oldType).Any())
+                {
+                    isEmpty = false;
+                    memberBuilder.AppendLine($"<div class='members'><h4>Fields</h4><ul>");
+                    foreach (var method in type.GetFields(oldType))
+                    {
+                        var str = FormatMember(method.Item1);
+                        if (method.Item2)
+                            str = $"<span class='memberRemoved'>{str}</span>";
+                        memberBuilder.AppendLine($"{GetIcon(method.Item1, str)}");
+                    }
+                    memberBuilder.AppendLine("</ul></div>");
+                }
                 if (type.TypeKind == TypeKind.Enum)
                 {
                     isEmpty = false;
@@ -267,9 +280,8 @@ namespace Generator.Generators
             }
             name = Briefify(member, name);
 
-            if (member is IPropertySymbol)
+            if (member is IPropertySymbol p)
             {
-                var p = (IPropertySymbol)member;
                 name += " { ";
                 if (p.GetMethod != null)
                 {
@@ -289,25 +301,27 @@ namespace Generator.Generators
                 }
                 name += "} : " + FormatType(p.Type);
             }
-            else if (member is IMethodSymbol)
+            else if (member is IMethodSymbol m)
             {
-                var m = (member as IMethodSymbol);
                 name += "(";
                if(m.Parameters.Any())
                 {
 
                 }
-                name += string.Join(", ", m.Parameters.Select(p => FormatType(p.Type) + " " + Briefify(p)));
+                name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr)));
                 name += ")";
                 if (!m.ReturnsVoid)
                 {
                     name += " : " + FormatType(m.ReturnType);
                 }
             }
-            else if (member is IEventSymbol)
+            else if (member is IEventSymbol e)
             {
-                var m = (member as IEventSymbol);
-                name += " : " + FormatType(m.Type);
+                name += " : " + FormatType(e.Type);
+            }
+            else if (member is IFieldSymbol f)
+            {
+                name += " : " + FormatType(f.Type);
             }
             return name;
         }
