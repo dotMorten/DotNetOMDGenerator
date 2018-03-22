@@ -30,7 +30,7 @@ It can also be used to compare two folders (for instance two separate branches) 
 [![Screenshot](Screenshot.png)](http://www.sharpgis.net/Tests/corefx.html)
 
 
-#Examples
+### Examples
 
 Generate OMD for .NET Core FX source code, and ignore ref and test folders:
 ```
