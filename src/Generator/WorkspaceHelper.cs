@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Generator
@@ -17,9 +19,9 @@ namespace Generator
             this.generator = generator;
         }
 
-        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
         {
-            var compilation = await CreateCompilationAsync(paths, preprocessors);
+            var compilation = await CreateCompilationAsync(paths, preprocessors, filter, filters);
             Console.WriteLine("Processing types...");
             var symbols = GetSymbols(compilation);
 
@@ -83,7 +85,7 @@ namespace Generator
             }
         }
 
-        internal Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null)
+        internal async Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
         {
             Console.WriteLine("Creating workspace...");
 
@@ -93,7 +95,20 @@ namespace Generator
             var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Default, "CSharpExample", "CSharpExample", "C#");
             ws.AddProject(projectInfo);
             foreach (var path in paths)
-                LoadFolderDocuments(path, ws, projectInfo.Id);
+            {
+                if (path.StartsWith("http://") || path.StartsWith("https://"))
+                {
+                    await DownloadDocumentsAsync(path, ws, projectInfo.Id, filter, filters).ConfigureAwait(false);
+                }
+                else if(path.EndsWith(".zip"))
+                {
+                    LoadCompressedDocuments(path, ws, projectInfo.Id, filter, filters);
+                }
+                else
+                {
+                    LoadFolderDocuments(path, ws, projectInfo.Id, filter, filters);
+                }
+            }
             Console.WriteLine("Compiling...");
             string mscorlib = @"c:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll";
             var project = ws.CurrentSolution.Projects.Single();
@@ -104,30 +119,117 @@ namespace Generator
                 project = project.AddMetadataReference(metaref);
             }
             
-            return project.GetCompilationAsync();
+            return await project.GetCompilationAsync().ConfigureAwait(false);
+        }
+        
+        private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        {
+            var handler = new HttpClientHandler() { AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate };
+            var client = new HttpClient(handler);
+            HttpRequestMessage msg = new HttpRequestMessage(HttpMethod.Get, uri);
+            msg.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("DotNetOMDGenerator", "1.0"));
+            Console.WriteLine("Downloading " + uri + "...");
+            using (var result = await client.SendAsync(msg, HttpCompletionOption.ResponseHeadersRead))
+            {
+                var content = result.EnsureSuccessStatusCode().Content;
+                using (var s = await content.ReadAsStreamAsync())
+                {
+                    var headers = result.Headers.ToArray();
+                    var filename = Path.GetTempFileName();
+                    var name = content.Headers.ContentDisposition?.FileName;
+                    if (content.Headers.ContentType?.MediaType == "application/zip")
+                    {
+                        var length = content.Headers.ContentLength;
+                        using (var f = System.IO.File.OpenWrite(filename))
+                        {
+                            var buffer = new byte[65536];
+                            long read = 0;
+                            int count = -1;
+                            while (count != 0) {
+                                count = await s.ReadAsync(buffer, 0, buffer.Length);
+                                if(count > 0)
+                                   await f.WriteAsync(buffer, 0, count);
+                                read += count;
+                                if (length.HasValue)
+                                    Console.Write($"         \r{(read * 100.0 / length.Value).ToString("0.0")}%  ({(length.Value/1024d/1024d).ToString("0.0")}mb)");
+                                else
+                                    Console.Write($"         \r{read} bytes...");
+                            }
+                            Console.WriteLine();
+                        }
+                        LoadCompressedDocuments(filename, ws, projectId, filter, filters);
+                        File.Delete(filename);
+                    }
+                    else if (content.Headers.ContentType?.MediaType == "text/plain")
+                    {
+                        var sourceText = SourceText.From(s);
+                        ws.AddDocument(projectId, name ?? "Unknown.cs", sourceText);
+                    }
+                    else
+                        throw new Exception("Invalid or missing content type: " + content.Headers.ContentType?.MediaType);
+                }
+            }
         }
 
-        private void LoadFolderDocuments(string folderName, AdhocWorkspace ws, ProjectId projectId)
+        private void LoadCompressedDocuments(string zipFile, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
         {
-            foreach (var file in new DirectoryInfo(folderName).GetFiles("*.cs"))
+            using (var s = File.OpenRead(zipFile))
+            {
+                System.IO.Compression.ZipArchive a = new System.IO.Compression.ZipArchive(s, System.IO.Compression.ZipArchiveMode.Read);
+                foreach (var e in a.Entries)
+                {
+                    if (string.IsNullOrEmpty(e.Name)) //Folder
+                        continue;
+                    if ((filter == null || !filter.IsMatch(e.FullName)) && 
+                        (filters== null || !filters.Where(f=> e.FullName.Contains(f) ).Any())) 
+                    {
+                        if (e.Name.EndsWith(".cs"))
+                        {
+                            using (var sr = new StreamReader(e.Open()))
+                            {
+                                var sourceText = SourceText.From(sr.ReadToEnd());
+                                ws.AddDocument(projectId, e.Name, sourceText);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void LoadFolderDocuments(string folderName, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        {   
+            var di = new DirectoryInfo(folderName);
+            FileInfo f = new FileInfo(folderName);
+            IEnumerable<FileInfo> files;
+            if (f.Exists)
+            {
+                files = new FileInfo[] { f };
+            }
+            else
+            {
+                files = di.GetFiles("*.cs");
+                if (filter != null)
+                    files = files.Where(n => !filter.IsMatch(n.FullName));
+                if (filters != null)
+                    files = files.Where(n => !filters.Where(fl => n.FullName.Contains(fl)).Any());
+            }
+            foreach (var file in files)
             {
                 var sourceText = SourceText.From(File.OpenRead(file.FullName));
                 ws.AddDocument(projectId, file.Name, sourceText);
             }
             foreach (var dir in new DirectoryInfo(folderName).GetDirectories())
             {
-                LoadFolderDocuments(dir.FullName, ws, projectId);
+                LoadFolderDocuments(dir.FullName, ws, projectId, filter, filters);
             }
         }
 
-
         //************* Difference comparisons *******************/
 
-
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
         {
-            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors);
-            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors);
+            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors, filter, filters);
+            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors, filter, filters);
             var oldSymbols = GetSymbols(oldCompilation);
             var newSymbols = GetSymbols(newCompilation);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);

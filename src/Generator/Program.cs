@@ -49,14 +49,16 @@ namespace Generator
             }
             GeneratorSettings.ShowPrivateMembers = arg.ContainsKey("ShowPrivate");
             GeneratorSettings.ShowInternalMembers = arg.ContainsKey("ShowInternal");
+            string[] filters = arg.ContainsKey("filters") ? arg["filters"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
+            System.Text.RegularExpressions.Regex regexfilter = arg.ContainsKey("regexfilter") ? new System.Text.RegularExpressions.Regex(arg["filter"]) : null;
             string[] source = arg["source"].Split(';', StringSplitOptions.RemoveEmptyEntries);
             string[] oldSource = arg.ContainsKey("compareSource") ? arg["compareSource"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] preprocessors = arg.ContainsKey("preprocessors") ? arg["preprocessors"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             var g = new Generator(generator);
             if (oldSource != null)
-                g.ProcessDiffs(oldSource, source, preprocessors).Wait();
+                g.ProcessDiffs(oldSource, source, preprocessors, regexfilter, filters).Wait();
             else
-                g.Process(source, preprocessors).Wait();
+                g.Process(source, preprocessors, regexfilter, filters).Wait();
 
             Console.ReadKey();
         }
@@ -64,13 +66,15 @@ namespace Generator
         private static void WriteUsage()
         {
             Console.WriteLine("\nUsage:");
-            Console.WriteLine(" dotnet GENERATOR.dll /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /format=[html|image] /ShowPrivate /ShowInternal");
+            Console.WriteLine(" dotnet GENERATOR.dll /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /format=[html|image] /filter=[regex] /ShowPrivate /ShowInternal");
             Console.WriteLine("\nRequired parameters:");
             Console.WriteLine("  source        Specifies the folder of source files to include for the object model.\n                Separate with ; for multiple folders");
             Console.WriteLine("\nOptional parameters:");
             Console.WriteLine("  compareSource Specifies a folder to compare source and generate a diff model\n                This can be useful for finding API changes or compare branches");
             Console.WriteLine("  format        Format to generate: 'image' generates an image for each object.\n                'html' a single html output (html is default)");
             Console.WriteLine("  preprocessors Define a set of preprocessors values. Use ; to separate multiple");
+            Console.WriteLine("  filters       Defines one or more strings that can't be part of the path Ie '/Samples/;/UnitTests/'");
+            Console.WriteLine("  regexfilter   Defines a regular expression for filtering on full file names in the source");
             Console.WriteLine("  ShowPrivate   Show private members (default is false)");
             Console.WriteLine("  ShowInternal  Show internal members (default is false)");
         }
