@@ -180,8 +180,8 @@ namespace Generator
                 {
                     if (string.IsNullOrEmpty(e.Name)) //Folder
                         continue;
-                    if ((filter == null || !filter.IsMatch(e.FullName)) && 
-                        (filters== null || !filters.Where(f=> e.FullName.Contains(f) ).Any())) 
+                    if ((filter == null || !filter.IsMatch(e.FullName.Replace('\\','/'))) && 
+                        (filters== null || !filters.Where(f=> e.FullName.Replace('\\', '/').Contains(f) ).Any())) 
                     {
                         if (e.Name.EndsWith(".cs"))
                         {
@@ -209,9 +209,9 @@ namespace Generator
             {
                 files = di.GetFiles("*.cs");
                 if (filter != null)
-                    files = files.Where(n => !filter.IsMatch(n.FullName));
+                    files = files.Where(n => !filter.IsMatch(n.FullName.Replace('\\', '/')));
                 if (filters != null)
-                    files = files.Where(n => !filters.Where(fl => n.FullName.Contains(fl)).Any());
+                    files = files.Where(n => !filters.Where(fl => n.FullName.Replace('\\', '/').Contains(fl)).Any());
             }
             foreach (var file in files)
             {

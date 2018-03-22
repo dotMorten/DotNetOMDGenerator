@@ -73,7 +73,7 @@ namespace Generator
             Console.WriteLine("  compareSource Specifies a folder to compare source and generate a diff model\n                This can be useful for finding API changes or compare branches");
             Console.WriteLine("  format        Format to generate: 'image' generates an image for each object.\n                'html' a single html output (html is default)");
             Console.WriteLine("  preprocessors Define a set of preprocessors values. Use ; to separate multiple");
-            Console.WriteLine("  filters       Defines one or more strings that can't be part of the path Ie '/Samples/;/UnitTests/'");
+            Console.WriteLine("  filters       Defines one or more strings that can't be part of the path Ie '/Samples/;/UnitTests/'\n                (use forward slash for folder separators)");
             Console.WriteLine("  regexfilter   Defines a regular expression for filtering on full file names in the source");
             Console.WriteLine("  ShowPrivate   Show private members (default is false)");
             Console.WriteLine("  ShowInternal  Show internal members (default is false)");
