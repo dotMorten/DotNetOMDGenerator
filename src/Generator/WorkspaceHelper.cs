@@ -39,7 +39,7 @@ namespace Generator
             Action<INamespaceSymbol, List<INamespaceSymbol>> getNamespaces = null;
             getNamespaces = (inss, list) =>
             {
-                foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>().Where(n=>n.Locations.Any(l=>l.Kind == LocationKind.SourceFile)))
+                foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>().Where(n => n.Locations.Any(l => l.Kind == LocationKind.SourceFile)))
                 {
                     list.Add(childNs);
                     getNamespaces(childNs, list);
@@ -52,7 +52,7 @@ namespace Generator
             {
                 symbols.AddRange(GetTypes(ns));
             }
-            symbols = symbols.OrderBy(t => t.Name).OrderBy(t=>t.GetFullNamespace()).ToList();
+            symbols = symbols.OrderBy(t => t.Name).OrderBy(t => t.GetFullNamespace()).ToList();
             return symbols;
         }
 
@@ -60,6 +60,8 @@ namespace Generator
         {
             foreach (var type in ns.GetTypeMembers().OfType<INamedTypeSymbol>())
             {
+                if (type.Locations.Any(l => l.Kind != LocationKind.SourceFile))
+                    continue;
                 if (type.DeclaredAccessibility == Accessibility.Private && !GeneratorSettings.ShowPrivateMembers)
                     continue;
                 if (type.DeclaredAccessibility == Accessibility.Internal && !GeneratorSettings.ShowInternalMembers)
@@ -100,7 +102,7 @@ namespace Generator
                 {
                     await DownloadDocumentsAsync(path, ws, projectInfo.Id, filter, filters).ConfigureAwait(false);
                 }
-                else if(path.EndsWith(".zip"))
+                else if (path.EndsWith(".zip"))
                 {
                     LoadCompressedDocuments(path, ws, projectInfo.Id, filter, filters);
                 }
@@ -118,10 +120,10 @@ namespace Generator
                 var metaref = MetadataReference.CreateFromFile(mscorlib);
                 project = project.AddMetadataReference(metaref);
             }
-            
+
             return await project.GetCompilationAsync().ConfigureAwait(false);
         }
-        
+
         private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
         {
             var handler = new HttpClientHandler() { AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate };
@@ -147,11 +149,11 @@ namespace Generator
                             int count = -1;
                             while (count != 0) {
                                 count = await s.ReadAsync(buffer, 0, buffer.Length);
-                                if(count > 0)
-                                   await f.WriteAsync(buffer, 0, count);
+                                if (count > 0)
+                                    await f.WriteAsync(buffer, 0, count);
                                 read += count;
                                 if (length.HasValue)
-                                    Console.Write($"         \r{(read * 100.0 / length.Value).ToString("0.0")}%  ({(length.Value/1024d/1024d).ToString("0.0")}mb)");
+                                    Console.Write($"         \r{(read * 100.0 / length.Value).ToString("0.0")}%  ({(length.Value / 1024d / 1024d).ToString("0.0")}mb)");
                                 else
                                     Console.Write($"         \r{read} bytes...");
                             }
@@ -180,8 +182,8 @@ namespace Generator
                 {
                     if (string.IsNullOrEmpty(e.Name)) //Folder
                         continue;
-                    if ((filter == null || !filter.IsMatch(e.FullName.Replace('\\','/'))) && 
-                        (filters== null || !filters.Where(f=> e.FullName.Replace('\\', '/').Contains(f) ).Any())) 
+                    if ((filter == null || !filter.IsMatch(e.FullName.Replace('\\', '/'))) &&
+                        (filters == null || !filters.Where(f => e.FullName.Replace('\\', '/').Contains(f)).Any()))
                     {
                         if (e.Name.EndsWith(".cs"))
                         {
@@ -197,7 +199,7 @@ namespace Generator
         }
 
         private void LoadFolderDocuments(string folderName, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
-        {   
+        {
             var di = new DirectoryInfo(folderName);
             FileInfo f = new FileInfo(folderName);
             IEnumerable<FileInfo> files;
