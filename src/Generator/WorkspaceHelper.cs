@@ -357,29 +357,44 @@ namespace Generator
             public int GetHashCode(INamedTypeSymbol obj) => obj.GetFullTypeName().GetHashCode();
         }
 
+        internal static class Constants
+        {
+            public static readonly SymbolDisplayFormat AllFormat = new SymbolDisplayFormat(
+                SymbolDisplayGlobalNamespaceStyle.Included,
+                SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+                (SymbolDisplayGenericsOptions)255,
+                (SymbolDisplayMemberOptions)255,
+                (SymbolDisplayDelegateStyle)255, (SymbolDisplayExtensionMethodStyle)255,
+                (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.ShowReadWriteDescriptor, 
+                (SymbolDisplayLocalOptions)255, (SymbolDisplayKindOptions)255, (SymbolDisplayMiscellaneousOptions)255);
+        }
         internal class PropertyComparer : IEqualityComparer<IPropertySymbol>
         {
             internal static PropertyComparer Comparer = new PropertyComparer();
-            public bool Equals(IPropertySymbol x, IPropertySymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
-            public int GetHashCode(IPropertySymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IPropertySymbol x, IPropertySymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public int GetHashCode(IPropertySymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
         internal class MethodComparer : IEqualityComparer<IMethodSymbol>
         {
             public static MethodComparer Comparer = new MethodComparer();
-            public bool Equals(IMethodSymbol x, IMethodSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
-            public int GetHashCode(IMethodSymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IMethodSymbol x, IMethodSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public int GetHashCode(IMethodSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
         internal class EventComparer : IEqualityComparer<IEventSymbol>
         {
             public static EventComparer Comparer = new EventComparer();
-            public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
-            public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
         internal class FieldComparer : IEqualityComparer<IFieldSymbol>
         {
             public static FieldComparer Comparer = new FieldComparer();
-            public bool Equals(IFieldSymbol x, IFieldSymbol y) => (x.ToDisplayString() + "=" + x.ConstantValue?.ToString()).Equals((y.ToDisplayString() + "=" + y.ConstantValue?.ToString()));
-            public int GetHashCode(IFieldSymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IFieldSymbol x, IFieldSymbol y) => FormatField(x).Equals(FormatField(y));
+            public int GetHashCode(IFieldSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
+            private static string FormatField(IFieldSymbol x)
+            {
+                return x.ToDisplayString(Constants.AllFormat) + "=" + x.ConstantValue?.ToString();
+            }
         }
     }
 }
