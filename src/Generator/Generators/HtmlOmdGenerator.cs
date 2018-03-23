@@ -77,7 +77,7 @@ namespace Generator.Generators
                 }
                 sw.WriteLine($"<section id='{nsname}'>");
                 currentNamespace = nsname;
-                sw.WriteLine($"<button class='expander active'>{nsname}</button><div>");
+                sw.WriteLine($"<h3 class='expander active'>{nsname}</h3><div>");
             }
             sw.WriteLine($"<div class='objectBox{(isTypeRemoved ? " typeRemoved" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;
