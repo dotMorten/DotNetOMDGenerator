@@ -27,9 +27,16 @@ namespace Generator.Generators
 
         public void Complete()
         {
-            sw.WriteLine("<br/><br/><hr style=\"clear:both;\"/>");
-            sw.WriteLine("Generated with <a href=\"https://github.com/dotMorten/DotNetOMDGenerator\">.NET Object Model Diagram Generator</a><br/><br/>");
-            sw.WriteLine("</body>\n</html>");
+            if (currentNamespace != null)
+            {
+                //close the last namespace section
+                sw.WriteLine("</div></section>");
+                sw.Flush();
+            }
+            using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdFooter.html"))
+            {
+                s.CopyTo(sw.BaseStream);
+            }
             sw.Flush();
             sw.Close();
             sw.Dispose();
@@ -63,8 +70,14 @@ namespace Generator.Generators
             var nsname = type.GetFullNamespace();
             if (nsname != currentNamespace)
             {
+                if(currentNamespace != null)
+                {
+                    //close the current namespace section
+                    sw.WriteLine("</div></section>");
+                }
+                sw.WriteLine($"<section id='{nsname}'>");
                 currentNamespace = nsname;
-                sw.WriteLine($"<div class='namespaceHeader' id='{nsname}'>{nsname}</div>");
+                sw.WriteLine($"<button class='expander active'>{nsname}</button><div>");
             }
             sw.WriteLine($"<div class='objectBox{(isTypeRemoved ? " typeRemoved" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;

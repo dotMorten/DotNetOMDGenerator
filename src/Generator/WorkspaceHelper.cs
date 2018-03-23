@@ -266,7 +266,7 @@ namespace Generator
                 var oldS = oldSymbols.Where(o => o.GetFullTypeName() == name).First();
                 symbols.Add((s, oldS));
             }
-            return symbols.OrderBy(s => (s.Item1 ?? s.Item2).GetFullTypeName());
+            return symbols.OrderBy(s => (s.Item1 ?? s.Item2).Name).OrderBy(s => (s.Item1 ?? s.Item2).GetFullNamespace()).ToList();
         }
         private void GenerateCode(ICodeDiffGenerator generator, INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
