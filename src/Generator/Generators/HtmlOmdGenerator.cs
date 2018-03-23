@@ -30,7 +30,7 @@ namespace Generator.Generators
             if (currentNamespace != null)
             {
                 //close the last namespace section
-                sw.WriteLine("</section>");
+                sw.WriteLine("</div></section>");
             }
             using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdFooter.html"))
             {
