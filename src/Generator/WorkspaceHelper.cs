@@ -376,18 +376,21 @@ namespace Generator
             public bool Equals(IPropertySymbol x, IPropertySymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
             public int GetHashCode(IPropertySymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
+
         internal class MethodComparer : IEqualityComparer<IMethodSymbol>
         {
             public static MethodComparer Comparer = new MethodComparer();
             public bool Equals(IMethodSymbol x, IMethodSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
             public int GetHashCode(IMethodSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
+
         internal class EventComparer : IEqualityComparer<IEventSymbol>
         {
             public static EventComparer Comparer = new EventComparer();
             public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
             public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
+
         internal class FieldComparer : IEqualityComparer<IFieldSymbol>
         {
             public static FieldComparer Comparer = new FieldComparer();
