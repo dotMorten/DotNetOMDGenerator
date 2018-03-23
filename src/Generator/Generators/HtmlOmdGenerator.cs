@@ -66,7 +66,7 @@ namespace Generator.Generators
                 currentNamespace = nsname;
                 sw.WriteLine($"<div class='namespaceHeader' id='{nsname}'>{nsname}</div>");
             }
-            sw.WriteLine($"<div class='objectBox {(isTypeRemoved ? " typeRemoved'" : "")}' id='{type.GetFullTypeName()}'>");
+            sw.WriteLine($"<div class='objectBox{(isTypeRemoved ? " typeRemoved" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;
             var memberBuilder = new StringBuilder();
             {
