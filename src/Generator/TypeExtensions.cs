@@ -79,7 +79,7 @@ namespace Generator
             var oldMembers = GetMethods(oldType);
             return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false))
                 .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true)))
-                .OrderBy(t => t.Item1.Name);
+             .OrderBy(t => string.Join(',', t.Item1.Parameters.Select(p => p.Name))).OrderBy(t => t.Item1.Name);
         }
 
         public static IEnumerable<IPropertySymbol> GetProperties(this INamedTypeSymbol type)
