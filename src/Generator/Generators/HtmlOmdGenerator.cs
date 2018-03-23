@@ -337,11 +337,7 @@ namespace Generator.Generators
             else if (member is IMethodSymbol m)
             {
                 name += "(";
-               if(m.Parameters.Any())
-                {
-
-                }
-                name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr)));
+                name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr) + (pr.HasExplicitDefaultValue ? (" = " + (pr.ExplicitDefaultValue?.ToString() ?? "null")) : "")));
                 name += ")";
                 if (!m.ReturnsVoid)
                 {
