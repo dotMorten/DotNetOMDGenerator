@@ -348,12 +348,13 @@ namespace Generator.Generators
             }
             else if (member is IMethodSymbol m)
             {
-                name += "(";
-               if(m.Parameters.Any())
+                if (m.TypeArguments.Any())
                 {
-
+                    name += System.Web.HttpUtility.HtmlEncode("<" + string.Join(", ", m.TypeArguments.Select(t => t.ToDisplayString())) + ">");
                 }
-                name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr)));
+
+                name += "(";
+                name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr) + (pr.HasExplicitDefaultValue ? (" = " + (pr.ExplicitDefaultValue?.ToString() ?? "null")) : "")));
                 name += ")";
                 if (!m.ReturnsVoid)
                 {

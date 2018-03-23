@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Generator
@@ -17,9 +19,9 @@ namespace Generator
             this.generator = generator;
         }
 
-        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
         {
-            var compilation = await CreateCompilationAsync(paths, preprocessors);
+            var compilation = await CreateCompilationAsync(paths, preprocessors, filter, filters);
             Console.WriteLine("Processing types...");
             var symbols = GetSymbols(compilation);
 
@@ -37,7 +39,7 @@ namespace Generator
             Action<INamespaceSymbol, List<INamespaceSymbol>> getNamespaces = null;
             getNamespaces = (inss, list) =>
             {
-                foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>().Where(n=>n.Locations.Any(l=>l.Kind == LocationKind.SourceFile)))
+                foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>().Where(n => n.Locations.Any(l => l.Kind == LocationKind.SourceFile)))
                 {
                     list.Add(childNs);
                     getNamespaces(childNs, list);
@@ -50,7 +52,7 @@ namespace Generator
             {
                 symbols.AddRange(GetTypes(ns));
             }
-            symbols = symbols.OrderBy(t => t.GetFullTypeName()).ToList();
+            symbols = symbols.OrderBy(t => t.Name).OrderBy(t => t.GetFullNamespace()).ToList();
             return symbols;
         }
 
@@ -58,6 +60,8 @@ namespace Generator
         {
             foreach (var type in ns.GetTypeMembers().OfType<INamedTypeSymbol>())
             {
+                if (type.Locations.Any(l => l.Kind != LocationKind.SourceFile))
+                    continue;
                 if (type.DeclaredAccessibility == Accessibility.Private && !GeneratorSettings.ShowPrivateMembers)
                     continue;
                 if (type.DeclaredAccessibility == Accessibility.Internal && !GeneratorSettings.ShowInternalMembers)
@@ -83,7 +87,7 @@ namespace Generator
             }
         }
 
-        internal Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null)
+        internal async Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
         {
             Console.WriteLine("Creating workspace...");
 
@@ -93,7 +97,20 @@ namespace Generator
             var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Default, "CSharpExample", "CSharpExample", "C#");
             ws.AddProject(projectInfo);
             foreach (var path in paths)
-                LoadFolderDocuments(path, ws, projectInfo.Id);
+            {
+                if (path.StartsWith("http://") || path.StartsWith("https://"))
+                {
+                    await DownloadDocumentsAsync(path, ws, projectInfo.Id, filter, filters).ConfigureAwait(false);
+                }
+                else if (path.EndsWith(".zip"))
+                {
+                    LoadCompressedDocuments(path, ws, projectInfo.Id, filter, filters);
+                }
+                else
+                {
+                    LoadFolderDocuments(path, ws, projectInfo.Id, filter, filters);
+                }
+            }
             Console.WriteLine("Compiling...");
             string mscorlib = @"c:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll";
             var project = ws.CurrentSolution.Projects.Single();
@@ -103,31 +120,118 @@ namespace Generator
                 var metaref = MetadataReference.CreateFromFile(mscorlib);
                 project = project.AddMetadataReference(metaref);
             }
-            
-            return project.GetCompilationAsync();
+
+            return await project.GetCompilationAsync().ConfigureAwait(false);
         }
 
-        private void LoadFolderDocuments(string folderName, AdhocWorkspace ws, ProjectId projectId)
+        private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
         {
-            foreach (var file in new DirectoryInfo(folderName).GetFiles("*.cs"))
+            var handler = new HttpClientHandler() { AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate };
+            var client = new HttpClient(handler);
+            HttpRequestMessage msg = new HttpRequestMessage(HttpMethod.Get, uri);
+            msg.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("DotNetOMDGenerator", "1.0"));
+            Console.WriteLine("Downloading " + uri + "...");
+            using (var result = await client.SendAsync(msg, HttpCompletionOption.ResponseHeadersRead))
+            {
+                var content = result.EnsureSuccessStatusCode().Content;
+                using (var s = await content.ReadAsStreamAsync())
+                {
+                    var headers = result.Headers.ToArray();
+                    var filename = Path.GetTempFileName();
+                    var name = content.Headers.ContentDisposition?.FileName;
+                    if (content.Headers.ContentType?.MediaType == "application/zip")
+                    {
+                        var length = content.Headers.ContentLength;
+                        using (var f = System.IO.File.OpenWrite(filename))
+                        {
+                            var buffer = new byte[65536];
+                            long read = 0;
+                            int count = -1;
+                            while (count != 0) {
+                                count = await s.ReadAsync(buffer, 0, buffer.Length);
+                                if (count > 0)
+                                    await f.WriteAsync(buffer, 0, count);
+                                read += count;
+                                if (length.HasValue)
+                                    Console.Write($"         \r{(read * 100.0 / length.Value).ToString("0.0")}%  ({(length.Value / 1024d / 1024d).ToString("0.0")}mb)");
+                                else
+                                    Console.Write($"         \r{read} bytes...");
+                            }
+                            Console.WriteLine();
+                        }
+                        LoadCompressedDocuments(filename, ws, projectId, filter, filters);
+                        File.Delete(filename);
+                    }
+                    else if (content.Headers.ContentType?.MediaType == "text/plain")
+                    {
+                        var sourceText = SourceText.From(s);
+                        ws.AddDocument(projectId, name ?? "Unknown.cs", sourceText);
+                    }
+                    else
+                        throw new Exception("Invalid or missing content type: " + content.Headers.ContentType?.MediaType);
+                }
+            }
+        }
+
+        private void LoadCompressedDocuments(string zipFile, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        {
+            using (var s = File.OpenRead(zipFile))
+            {
+                System.IO.Compression.ZipArchive a = new System.IO.Compression.ZipArchive(s, System.IO.Compression.ZipArchiveMode.Read);
+                foreach (var e in a.Entries)
+                {
+                    if (string.IsNullOrEmpty(e.Name)) //Folder
+                        continue;
+                    if ((filter == null || !filter.IsMatch(e.FullName.Replace('\\', '/'))) &&
+                        (filters == null || !filters.Where(f => e.FullName.Replace('\\', '/').Contains(f)).Any()))
+                    {
+                        if (e.Name.EndsWith(".cs"))
+                        {
+                            using (var sr = new StreamReader(e.Open()))
+                            {
+                                var sourceText = SourceText.From(sr.ReadToEnd());
+                                ws.AddDocument(projectId, e.Name, sourceText);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void LoadFolderDocuments(string folderName, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        {
+            var di = new DirectoryInfo(folderName);
+            FileInfo f = new FileInfo(folderName);
+            IEnumerable<FileInfo> files;
+            if (f.Exists)
+            {
+                files = new FileInfo[] { f };
+            }
+            else
+            {
+                files = di.GetFiles("*.cs");
+                if (filter != null)
+                    files = files.Where(n => !filter.IsMatch(n.FullName.Replace('\\', '/')));
+                if (filters != null)
+                    files = files.Where(n => !filters.Where(fl => n.FullName.Replace('\\', '/').Contains(fl)).Any());
+            }
+            foreach (var file in files)
             {
                 var sourceText = SourceText.From(File.OpenRead(file.FullName));
                 ws.AddDocument(projectId, file.Name, sourceText);
             }
             foreach (var dir in new DirectoryInfo(folderName).GetDirectories())
             {
-                LoadFolderDocuments(dir.FullName, ws, projectId);
+                LoadFolderDocuments(dir.FullName, ws, projectId, filter, filters);
             }
         }
 
-
         //************* Difference comparisons *******************/
 
-
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
         {
-            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors);
-            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors);
+            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors, filter, filters);
+            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors, filter, filters);
             var oldSymbols = GetSymbols(oldCompilation);
             var newSymbols = GetSymbols(newCompilation);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);
@@ -255,29 +359,47 @@ namespace Generator
             public int GetHashCode(INamedTypeSymbol obj) => obj.GetFullTypeName().GetHashCode();
         }
 
+        internal static class Constants
+        {
+            public static readonly SymbolDisplayFormat AllFormat = new SymbolDisplayFormat(
+                SymbolDisplayGlobalNamespaceStyle.Included,
+                SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+                (SymbolDisplayGenericsOptions)255,
+                (SymbolDisplayMemberOptions)255,
+                (SymbolDisplayDelegateStyle)255, (SymbolDisplayExtensionMethodStyle)255,
+                (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.ShowReadWriteDescriptor, 
+                (SymbolDisplayLocalOptions)255, (SymbolDisplayKindOptions)255, (SymbolDisplayMiscellaneousOptions)255);
+        }
         internal class PropertyComparer : IEqualityComparer<IPropertySymbol>
         {
             internal static PropertyComparer Comparer = new PropertyComparer();
-            public bool Equals(IPropertySymbol x, IPropertySymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
-            public int GetHashCode(IPropertySymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IPropertySymbol x, IPropertySymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public int GetHashCode(IPropertySymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
+
         internal class MethodComparer : IEqualityComparer<IMethodSymbol>
         {
             public static MethodComparer Comparer = new MethodComparer();
-            public bool Equals(IMethodSymbol x, IMethodSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
-            public int GetHashCode(IMethodSymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IMethodSymbol x, IMethodSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public int GetHashCode(IMethodSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
+
         internal class EventComparer : IEqualityComparer<IEventSymbol>
         {
             public static EventComparer Comparer = new EventComparer();
-            public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString().Equals(y.ToDisplayString());
-            public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
+
         internal class FieldComparer : IEqualityComparer<IFieldSymbol>
         {
             public static FieldComparer Comparer = new FieldComparer();
-            public bool Equals(IFieldSymbol x, IFieldSymbol y) => (x.ToDisplayString() + "=" + x.ConstantValue?.ToString()).Equals((y.ToDisplayString() + "=" + y.ConstantValue?.ToString()));
-            public int GetHashCode(IFieldSymbol obj) => obj.ToDisplayString().GetHashCode();
+            public bool Equals(IFieldSymbol x, IFieldSymbol y) => FormatField(x).Equals(FormatField(y));
+            public int GetHashCode(IFieldSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
+            private static string FormatField(IFieldSymbol x)
+            {
+                return x.ToDisplayString(Constants.AllFormat) + "=" + x.ConstantValue?.ToString();
+            }
         }
     }
 }
