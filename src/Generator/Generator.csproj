@@ -6,10 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Generators\HtmlOmdFooter.html" />
     <None Remove="Generators\HtmlOmdHeader.html" />
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Generators\HtmlOmdFooter.html" />
     <EmbeddedResource Include="Generators\HtmlOmdHeader.html" />
   </ItemGroup>
 
