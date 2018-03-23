@@ -201,7 +201,6 @@ namespace Generator.Generators
                     if (iface.wasRemoved) sw.Write("</span>");
                     i++;
                 }
-                sw.WriteLine("</span>");
             }
             sw.WriteLine("</div>"); //End header box
 
