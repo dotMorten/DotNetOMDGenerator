@@ -336,6 +336,11 @@ namespace Generator.Generators
             }
             else if (member is IMethodSymbol m)
             {
+                if (m.TypeArguments.Any())
+                {
+                    name += System.Web.HttpUtility.HtmlEncode("<" + string.Join(", ", m.TypeArguments.Select(t => t.ToDisplayString())) + ">");
+                }
+
                 name += "(";
                 name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr) + (pr.HasExplicitDefaultValue ? (" = " + (pr.ExplicitDefaultValue?.ToString() ?? "null")) : "")));
                 name += ")";
