@@ -31,6 +31,7 @@ namespace Generator.Generators
             {
                 //close the last namespace section
                 sw.WriteLine("</div></section>");
+                sw.Flush();
             }
             using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdFooter.html"))
             {
