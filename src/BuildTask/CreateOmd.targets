@@ -1,0 +1,7 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"> 
+
+  <Target Name="CreateObjectModel" AfterTargets="Compile">
+    <Exec Command="dotnet &quot;$(MSBuildThisFileDirectory)..\generator\Generator.dll&quot; /source=&quot;@(Compile)&quot; /preprocessors=&quot;$(DefineConstants)&quot; /output=&quot;$(OutputPath)$(TargetName).html&quot;" WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
+</Project> 
