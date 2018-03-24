@@ -14,11 +14,20 @@ namespace Generator.Generators
         private string currentNamespace;
 
         public void Initialize(List<INamedTypeSymbol> allSymbols) => Initialize(allSymbols, null);
+
         public void Initialize(List<INamedTypeSymbol> allSymbols, List<INamedTypeSymbol> oldSymbols)
         {
             this.allSymbols = allSymbols;
             this.oldSymbols = oldSymbols;
-            sw = new System.IO.StreamWriter("OMDs.html");
+            var outLocation = GeneratorSettings.OutputLocation;
+            var fi = new System.IO.FileInfo(outLocation);
+            if (!fi.Directory.Exists)
+            {
+                throw new System.IO.DirectoryNotFoundException(fi.Directory.FullName);
+            }
+            if (fi.Attributes == System.IO.FileAttributes.Directory)
+                outLocation = System.IO.Path.Combine(outLocation, "OMD.html");
+            sw = new System.IO.StreamWriter(outLocation);
             using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdHeader.html"))
             {
                 s.CopyTo(sw.BaseStream);

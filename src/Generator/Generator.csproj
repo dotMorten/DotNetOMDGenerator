@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Generators\OMDGenerator.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Generators\HtmlOmdFooter.html" />
     <None Remove="Generators\HtmlOmdHeader.html" />
   </ItemGroup>
