@@ -324,6 +324,27 @@ namespace Generator.Generators
                 return Briefify(type, name);
         }
 
+        private static string AccessorToString(Accessibility a)
+        {
+            switch(a)
+            {
+                case Accessibility.Public:
+                    return "public";
+                case Accessibility.Private:
+                    return "private";
+                case Accessibility.Internal:
+                    return "internal";
+                case Accessibility.Protected:
+                    return "protected";
+                case Accessibility.ProtectedOrInternal:
+                    return GeneratorSettings.ShowInternalMembers ? "protected internal" : "protected";
+                case Accessibility.ProtectedAndInternal:
+                    return "private protected";
+                default:
+                    return string.Empty;
+            }
+        }
+
         private string FormatMember(ISymbol member)
         {
             var brief = member.GetDescription();
@@ -337,22 +358,27 @@ namespace Generator.Generators
             if (member is IPropertySymbol p)
             {
                 name += " { ";
-                if (p.GetMethod != null)
+                if (p.GetMethod != null && ((p.GetMethod.DeclaredAccessibility == Accessibility.Public || p.GetMethod.DeclaredAccessibility == Accessibility.Protected || p.GetMethod.DeclaredAccessibility == Accessibility.ProtectedOrInternal) ||
+                    (GeneratorSettings.ShowInternalMembers && p.GetMethod.DeclaredAccessibility == Accessibility.Internal || p.GetMethod.DeclaredAccessibility == Accessibility.ProtectedAndInternal) ||
+                    (GeneratorSettings.ShowPrivateMembers && p.GetMethod.DeclaredAccessibility == Accessibility.Private)))
                 {
-                    if (p.GetMethod.DeclaredAccessibility == Accessibility.Internal)
-                    {
-                        name += "internal ";
+                    if(p.DeclaredAccessibility != p.GetMethod.DeclaredAccessibility)
+                    { 
+                        name += AccessorToString(p.GetMethod.DeclaredAccessibility) + " ";
                     }
                     name += "get; ";
                 }
-                if (p.SetMethod != null)
+                if (p.SetMethod != null && ((p.SetMethod.DeclaredAccessibility == Accessibility.Public || p.SetMethod.DeclaredAccessibility == Accessibility.Protected || p.SetMethod.DeclaredAccessibility == Accessibility.ProtectedOrInternal) ||
+                   (GeneratorSettings.ShowInternalMembers && p.SetMethod.DeclaredAccessibility == Accessibility.Internal || p.SetMethod.DeclaredAccessibility == Accessibility.ProtectedAndInternal) ||
+                   (GeneratorSettings.ShowPrivateMembers && p.SetMethod.DeclaredAccessibility == Accessibility.Private)))
                 {
-                    if (p.SetMethod.DeclaredAccessibility == Accessibility.Internal)
+                    if (p.DeclaredAccessibility != p.SetMethod.DeclaredAccessibility)
                     {
-                        name += "internal ";
+                        name += AccessorToString(p.SetMethod.DeclaredAccessibility) + " ";
                     }
                     name += "set; ";
                 }
+
                 name += "} : " + FormatType(p.Type);
             }
             else if (member is IMethodSymbol m)
