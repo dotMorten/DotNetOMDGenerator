@@ -198,10 +198,10 @@ namespace Generator
             }
         }
 
-        private void LoadFolderDocuments(string folderName, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        private void LoadFolderDocuments(string pathName, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
         {
-            var di = new DirectoryInfo(folderName);
-            FileInfo f = new FileInfo(folderName);
+            FileInfo f = new FileInfo(pathName);
+            DirectoryInfo di = null;
             IEnumerable<FileInfo> files;
             if (f.Exists)
             {
@@ -209,6 +209,7 @@ namespace Generator
             }
             else
             {
+                di = new DirectoryInfo(pathName);
                 files = di.GetFiles("*.cs");
                 if (filter != null)
                     files = files.Where(n => !filter.IsMatch(n.FullName.Replace('\\', '/')));
@@ -220,9 +221,12 @@ namespace Generator
                 var sourceText = SourceText.From(File.OpenRead(file.FullName));
                 ws.AddDocument(projectId, file.Name, sourceText);
             }
-            foreach (var dir in new DirectoryInfo(folderName).GetDirectories())
+            if (di != null)
             {
-                LoadFolderDocuments(dir.FullName, ws, projectId, filter, filters);
+                foreach (var dir in di.GetDirectories())
+                {
+                    LoadFolderDocuments(dir.FullName, ws, projectId, filter, filters);
+                }
             }
         }
 
