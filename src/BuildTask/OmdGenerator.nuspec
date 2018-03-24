@@ -3,13 +3,13 @@
   <metadata>
     <id>dotMorten.OmdGenerator</id>
     <version>0.1.0</version>
-    <title>OMD Generator - Auto-generate object model diagram</title>
+    <title>OMD Generator - Auto-generate object model diagrams</title>
     <authors>Morten Nielsen</authors>
     <owners>Morten Nielsen</owners>
     <licenseUrl>https://github.com/dotMorten/DotNetOMDGenerator/raw/master/LICENSE</licenseUrl>
     <projectUrl>https://github.com/dotMorten/DotNetOMDGenerator</projectUrl>
-    <description>Automatically generates an HTML Document with an object model diagram for you C# library</description>
-    <summary>Automatically generates an HTML Document with an object model diagram for you C# library</summary>
+    <description>Automatically generates an HTML Document with an object model diagram for your C# library</description>
+    <summary>Automatically generates an HTML Document with an object model diagram for your C# library</summary>
     <copyright>Copyright © 2018 Morten Nielsen.</copyright>
     <tags>OMD Diagram CSharp Roslyn</tags>
   </metadata>
