@@ -60,6 +60,7 @@ namespace Generator
             else
                 g.Process(source, preprocessors, regexfilter, filters).Wait();
 
+            if(System.Diagnostics.Debugger.IsAttached)
             Console.ReadKey();
         }
 
