@@ -77,7 +77,7 @@ namespace Generator.Generators
                 }
                 sw.WriteLine($"<section id='{nsname}'>");
                 currentNamespace = nsname;
-                sw.WriteLine($"<button class='expander active'>{nsname}</button><div>");
+                sw.WriteLine($"<h3 class='expander active'>{nsname}</h3><div>");
             }
             sw.WriteLine($"<div class='objectBox{(isTypeRemoved ? " typeRemoved" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;
@@ -214,7 +214,6 @@ namespace Generator.Generators
                     if (iface.wasRemoved) sw.Write("</span>");
                     i++;
                 }
-                sw.WriteLine("</span>");
             }
             sw.WriteLine("</div>"); //End header box
 
@@ -252,7 +251,7 @@ namespace Generator.Generators
                 icon += "event";
             if(type.IsStatic && type.ContainingType?.TypeKind != TypeKind.Enum)
             {
-                content = "<span class='static'/>" + content;
+                content = "<span class='static'></span>" + content;
             }
             if (icon == "")
                 return content;
