@@ -23,6 +23,13 @@ Optional parameters:
   ShowInternal  Show internal members (default is false)
 ```
 
+### NuGet
+As an alternative you can also reference a [NuGet package](https://www.nuget.org/packages/dotMorten.OmdGenerator/) to your class library, and an Object Model Diagram HTML file will be auto-generated when you build your project:
+
+```
+Install-Package dotMorten.OmdGenerator 
+```
+
 An example of a generated output for all of .NET Core can be found [here](http://www.sharpgis.net/Tests/corefx.html).
 
 It can also be used to compare two folders (for instance two separate branches) and only show changes to the API. [Here's an example of .NET CoreFX v2.0 vs Master](http://www.sharpgis.net/Tests/corefx_new.html).
