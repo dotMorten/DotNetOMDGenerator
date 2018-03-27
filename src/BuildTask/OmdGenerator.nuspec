@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/01/nuspec.xsd">
   <metadata>
     <id>dotMorten.OmdGenerator</id>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
     <title>OMD Generator - Auto-generate object model diagrams</title>
     <authors>Morten Nielsen</authors>
     <owners>Morten Nielsen</owners>
