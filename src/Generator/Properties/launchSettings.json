@@ -2,7 +2,7 @@
   "profiles": {
     "Generator": {
       "commandName": "Project",
-      "commandLineArgs": "/source=https://github.com/dotMorten/NmeaParser/archive/master.zip /compareSource=https://github.com/dotMorten/NmeaParser/archive/591c532920ef52eaa965ad0d1ee4565cac396914.zip /filters=/UnitTests/;/SampleApp.;/NmeaParser.Tests/."
+      "commandLineArgs": "/source=https://github.com/dotMorten/NmeaParser/archive/master.zip /compareSource=https://github.com/dotMorten/NmeaParser/archive/591c532920ef52eaa965ad0d1ee4565cac396914.zip /exclude=\"*/UnitTests/*;*/SampleApp.*;*/NmeaParser.Tests/*\""
     }
   }
 }

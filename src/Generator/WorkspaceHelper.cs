@@ -19,9 +19,9 @@ namespace Generator
             this.generator = generator;
         }
 
-        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex[] filters = null)
         {
-            var compilation = await CreateCompilationAsync(paths, preprocessors, filter, filters);
+            var compilation = await CreateCompilationAsync(paths, preprocessors, filters);
             Console.WriteLine("Processing types...");
             var symbols = GetSymbols(compilation);
 
@@ -87,7 +87,7 @@ namespace Generator
             }
         }
 
-        internal async Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
+        internal async Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex[] filters = null)
         {
             Console.WriteLine("Creating workspace...");
 
@@ -100,15 +100,15 @@ namespace Generator
             {
                 if (path.StartsWith("http://") || path.StartsWith("https://"))
                 {
-                    await DownloadDocumentsAsync(path, ws, projectInfo.Id, filter, filters).ConfigureAwait(false);
+                    await DownloadDocumentsAsync(path, ws, projectInfo.Id,  filters).ConfigureAwait(false);
                 }
                 else if (path.EndsWith(".zip"))
                 {
-                    LoadCompressedDocuments(path, ws, projectInfo.Id, filter, filters);
+                    LoadCompressedDocuments(path, ws, projectInfo.Id, filters);
                 }
                 else
                 {
-                    LoadFolderDocuments(path, ws, projectInfo.Id, filter, filters);
+                    LoadFolderDocuments(path, ws, projectInfo.Id, filters);
                 }
             }
             Console.WriteLine("Compiling...");
@@ -124,7 +124,7 @@ namespace Generator
             return await project.GetCompilationAsync().ConfigureAwait(false);
         }
 
-        private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex[] filters)
         {
             var handler = new HttpClientHandler() { AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate };
             var client = new HttpClient(handler);
@@ -159,7 +159,7 @@ namespace Generator
                             }
                             Console.WriteLine();
                         }
-                        LoadCompressedDocuments(filename, ws, projectId, filter, filters);
+                        LoadCompressedDocuments(filename, ws, projectId, filters);
                         File.Delete(filename);
                     }
                     else if (content.Headers.ContentType?.MediaType == "text/plain")
@@ -173,7 +173,7 @@ namespace Generator
             }
         }
 
-        private void LoadCompressedDocuments(string zipFile, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        private void LoadCompressedDocuments(string zipFile, AdhocWorkspace ws, ProjectId projectId, Regex[] filters)
         {
             using (var s = File.OpenRead(zipFile))
             {
@@ -182,8 +182,8 @@ namespace Generator
                 {
                     if (string.IsNullOrEmpty(e.Name)) //Folder
                         continue;
-                    if ((filter == null || !filter.IsMatch(e.FullName.Replace('\\', '/'))) &&
-                        (filters == null || !filters.Where(f => e.FullName.Replace('\\', '/').Contains(f)).Any()))
+                    var fullname = e.FullName.Replace('\\', '/');
+                    if (filters == null || !filters.Where(f => f.IsMatch(fullname)).Any())
                     {
                         if (e.Name.EndsWith(".cs"))
                         {
@@ -198,7 +198,7 @@ namespace Generator
             }
         }
 
-        private void LoadFolderDocuments(string pathName, AdhocWorkspace ws, ProjectId projectId, Regex filter, string[] filters)
+        private void LoadFolderDocuments(string pathName, AdhocWorkspace ws, ProjectId projectId, Regex[] filters)
         {
             FileInfo f = new FileInfo(pathName);
             DirectoryInfo di = null;
@@ -211,10 +211,8 @@ namespace Generator
             {
                 di = new DirectoryInfo(pathName);
                 files = di.GetFiles("*.cs");
-                if (filter != null)
-                    files = files.Where(n => !filter.IsMatch(n.FullName.Replace('\\', '/')));
                 if (filters != null)
-                    files = files.Where(n => !filters.Where(fl => n.FullName.Replace('\\', '/').Contains(fl)).Any());
+                    files = files.Where(n => !filters.Where(fl => fl.IsMatch(n.FullName.Replace('\\', '/'))).Any());
             }
             foreach (var file in files)
             {
@@ -225,17 +223,17 @@ namespace Generator
             {
                 foreach (var dir in di.GetDirectories())
                 {
-                    LoadFolderDocuments(dir.FullName, ws, projectId, filter, filters);
+                    LoadFolderDocuments(dir.FullName, ws, projectId, filters);
                 }
             }
         }
 
         //************* Difference comparisons *******************/
 
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null, Regex filter = null, string[] filters = null)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null, Regex[] filters = null)
         {
-            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors, filter, filters);
-            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors, filter, filters);
+            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors, filters);
+            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors, filters);
             var oldSymbols = GetSymbols(oldCompilation);
             var newSymbols = GetSymbols(newCompilation);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);
