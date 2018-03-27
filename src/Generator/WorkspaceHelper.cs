@@ -369,13 +369,34 @@ namespace Generator
                 (SymbolDisplayGenericsOptions)255,
                 (SymbolDisplayMemberOptions)255,
                 (SymbolDisplayDelegateStyle)255, (SymbolDisplayExtensionMethodStyle)255,
-                (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.ShowReadWriteDescriptor, 
+                (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.NameOnly, 
                 (SymbolDisplayLocalOptions)255, (SymbolDisplayKindOptions)255, (SymbolDisplayMiscellaneousOptions)255);
         }
         internal class PropertyComparer : IEqualityComparer<IPropertySymbol>
         {
             internal static PropertyComparer Comparer = new PropertyComparer();
-            public bool Equals(IPropertySymbol x, IPropertySymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public bool Equals(IPropertySymbol x, IPropertySymbol y)
+            {
+                if (!x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat)))
+                    return false;
+                IMethodSymbol gx = (x.GetMethod?.DeclaredAccessibility == Accessibility.Public ||
+                    (x.GetMethod?.DeclaredAccessibility == Accessibility.Internal && GeneratorSettings.ShowInternalMembers) ||
+                    (x.GetMethod?.DeclaredAccessibility == Accessibility.Private && GeneratorSettings.ShowPrivateMembers)) ? x.GetMethod : null;
+                IMethodSymbol gy = (y.GetMethod?.DeclaredAccessibility == Accessibility.Public ||
+                    (y.GetMethod?.DeclaredAccessibility == Accessibility.Internal && GeneratorSettings.ShowInternalMembers) ||
+                    (y.GetMethod?.DeclaredAccessibility == Accessibility.Private && GeneratorSettings.ShowPrivateMembers)) ? y.GetMethod : null;
+                if (gx?.DeclaredAccessibility != gy?.DeclaredAccessibility)
+                    return false;
+                IMethodSymbol sx = (x.SetMethod?.DeclaredAccessibility == Accessibility.Public ||
+                    (x.SetMethod?.DeclaredAccessibility == Accessibility.Internal && GeneratorSettings.ShowInternalMembers) ||
+                    (x.SetMethod?.DeclaredAccessibility == Accessibility.Private && GeneratorSettings.ShowPrivateMembers)) ? x.SetMethod : null;
+                IMethodSymbol sy = (y.SetMethod?.DeclaredAccessibility == Accessibility.Public ||
+                    (y.SetMethod?.DeclaredAccessibility == Accessibility.Internal && GeneratorSettings.ShowInternalMembers) ||
+                    (y.SetMethod?.DeclaredAccessibility == Accessibility.Private && GeneratorSettings.ShowPrivateMembers)) ? y.SetMethod : null;
+                if (sx?.DeclaredAccessibility != sy?.DeclaredAccessibility)
+                    return false;
+                return true;
+            }
             public int GetHashCode(IPropertySymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
 

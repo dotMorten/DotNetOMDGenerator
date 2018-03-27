@@ -23,6 +23,7 @@ namespace Generator
             if (!string.IsNullOrEmpty(xml))
             {
                 XmlDocument doc = new XmlDocument();
+                XmlElement elm = null;
                 try
                 {
                     doc.LoadXml(xml);
@@ -33,10 +34,31 @@ namespace Generator
                 }
                 if (type.Kind == SymbolKind.Parameter)
                 {
-                    var elm2 = doc.GetElementsByTagName("param").OfType<XmlElement>().Where(e => e.Attributes["name"]?.Value == type.Name).FirstOrDefault();
-                    return elm2?.InnerText.Trim();
+                    elm = doc.GetElementsByTagName("param").OfType<XmlElement>().Where(e => e.Attributes["name"]?.Value == type.Name).FirstOrDefault();
                 }
-                var elm = doc.GetElementsByTagName("summary").OfType<XmlElement>().FirstOrDefault();
+                else
+                {
+                    elm = doc.GetElementsByTagName("summary").OfType<XmlElement>().FirstOrDefault();
+                }
+                if(elm != null)
+                {
+                    foreach(var n in elm.ChildNodes.OfType<XmlElement>())
+                    {
+                        if(n.Name == "see")
+                        {
+                            // strip down xml <see cref="..."/> to just the type name
+                            if (string.IsNullOrEmpty(n.InnerText))
+                            {
+                                var cref = n.GetAttribute("cref");
+                                var idx = cref.LastIndexOf(".");
+                                if (idx == -1)
+                                    idx = cref.IndexOf(":");
+                                if (idx > -1)
+                                    n.InnerText = cref.Substring(idx + 1);
+                            }
+                        }
+                    }
+                }
                 return elm?.InnerText.Trim();
             }
             return null;
