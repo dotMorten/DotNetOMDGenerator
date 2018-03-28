@@ -16,7 +16,7 @@ Optional parameters:
   format        Format to generate: 'image' generates an image for each object.
                 'html' a single html output (html is default)
   preprocessors Define a set of preprocessors values. Use ; to separate multiple
-  filters       Defines one or more strings that can't be part of the path Ie '/Samples/;/UnitTests/'
+  exclude       Defines one or more strings that can't be part of the path Ie '*/Samples/*;*/UnitTests/*'
                 (use forward slash for folder separators)
   regexfilter   Defines a regular expression for filtering on full file names in the source
   ShowPrivate   Show private members (default is false)
@@ -41,13 +41,13 @@ It can also be used to compare two folders (for instance two separate branches) 
 
 Generate OMD for .NET Core FX source code, and ignore ref and test folders:
 ```
-dotnet Generator.dll /source=c:\github\dotnet\corefx\src /filters=/ref/;/tests/;/perftests/
+dotnet Generator.dll /source=c:\github\dotnet\corefx\src /exclude="*/ref/*;*/tests/*;*/perftests/*"
 ```
 
 Compare .NET CoreFX Master with v2.0.0 repo branches directly from their Github zipped downloads:
 
 ```
-dotnet Generator.dll /source=https://github.com/dotnet/corefx/archive/master.zip /compareSource=https://github.com/dotnet/corefx/archive/release/2.0.0.zip /filters=/ref/;/tests/;/perftests/
+dotnet Generator.dll /source=https://github.com/dotnet/corefx/archive/master.zip /compareSource=https://github.com/dotnet/corefx/archive/release/2.0.0.zip /exclude="*/ref/*;*/tests/*;*/perftests/*"
 ```
 
 
