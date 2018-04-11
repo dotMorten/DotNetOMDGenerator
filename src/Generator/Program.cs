@@ -58,24 +58,6 @@ namespace Generator
             string[] source = arg["source"].Split(';', StringSplitOptions.RemoveEmptyEntries);
             string[] oldSource = arg.ContainsKey("compareSource") ? arg["compareSource"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] preprocessors = arg.ContainsKey("preprocessors") ? arg["preprocessors"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
-            string[] paths = { @"dotnet-api\src\Esri.ArcGISRuntime\Esri.ArcGISRuntime.Shared",
-                @"dotnet-api\src\Esri.ArcGISRuntime\Esri.ArcGISRuntime.WindowsDesktop",
-                @"dotnet-api\src\Esri.ArcGISRuntime.Hydrography\Esri.ArcGISRuntime.Hydrography.Shared",
-                @"dotnet-api\src\Esri.ArcGISRuntime.Hydrography\Esri.ArcGISRuntime.Hydrography.WindowsDesktop",
-                @"dotnet-api\src\Esri.ArcGISRuntime.Preview\Esri.ArcGISRuntime.Preview.Shared",
-                @"dotnet-api\src\Esri.ArcGISRuntime.Preview\Esri.ArcGISRuntime.Preview.WindowsDesktop",
-                @"dotnet-api\src\Esri.ArcGISRuntime\Esri.ArcGISRuntime.Xamarin.Forms.Shared",
-                @"api_generated_interop\managed_wrappers" };
-            //oldSource = paths.Select(p => @"c:\apps100.2\dotnet\" + p).ToArray();
-            //source = paths.Select(p => @"c:\apps\dotnet\" + p).ToArray();
-            //oldSource = null;
-            //source = new[] { @"c:\GitHub\Microsoft\UWPCommunityToolkit"};
-            // oldSource = new[] { @"c:\GitHub\Microsoft\UWPCommunityToolkit2" };
-            // source = new[] { @"c:\temp\corefx\src" };
-            // oldSource = new[] { @"c:\temp\corefx2.0\src" };
-            // source = new[] { "https://github.com/dotMorten/NmeaParser/archive/master.zip" };
-            // oldSource = new[] { "https://github.com/dotMorten/NmeaParser/archive/591c532920ef52eaa965ad0d1ee4565cac396914.zip" };
-            //oldSource = new[] { "https://devtopia.esri.com/runtime/dotnet-api/archive/release/100.2.1.zip" };
             var g = new Generator(generator);
             if (oldSource != null)
                 g.ProcessDiffs(oldSource, source, preprocessors, filters.ToArray()).Wait();
