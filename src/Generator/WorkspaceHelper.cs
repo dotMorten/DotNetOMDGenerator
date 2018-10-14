@@ -19,11 +19,11 @@ namespace Generator
             this.generator = generator;
         }
 
-        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex[] filters = null)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null)
         {
-            var compilation = await CreateCompilationAsync(paths, preprocessors, filters);
+            var compilation = await CreateCompilationAsync(paths, assemblies, preprocessors, filters);
             Console.WriteLine("Processing types...");
-            var symbols = GetSymbols(compilation);
+            var symbols = GetSymbols(compilation.compilation, compilation.metadata);
 
             generator.Initialize(symbols);
             foreach (var s in symbols)
@@ -34,12 +34,17 @@ namespace Generator
             Console.WriteLine("Complete");
         }
 
-        private List<INamedTypeSymbol> GetSymbols(Compilation compilation)
+        private List<INamedTypeSymbol> GetSymbols(Compilation compilation, IEnumerable<MetadataReference> assemblies)
         {
             Action<INamespaceSymbol, List<INamespaceSymbol>> getNamespaces = null;
             getNamespaces = (inss, list) =>
             {
                 foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>().Where(n => n.Locations.Any(l => l.Kind == LocationKind.SourceFile)))
+                {
+                    list.Add(childNs);
+                    getNamespaces(childNs, list);
+                }
+                foreach (var childNs in inss.GetMembers().OfType<INamespaceSymbol>().Where(n => n.Locations.Any(l => l.Kind == LocationKind.MetadataFile)))
                 {
                     list.Add(childNs);
                     getNamespaces(childNs, list);
@@ -50,17 +55,24 @@ namespace Generator
             List<INamedTypeSymbol> symbols = new List<INamedTypeSymbol>();
             foreach (var ns in namespaces)
             {
-                symbols.AddRange(GetTypes(ns));
+                symbols.AddRange(GetTypes(ns, assemblies));
             }
             symbols = symbols.OrderBy(t => t.Name).OrderBy(t => t.GetFullNamespace()).ToList();
             return symbols;
         }
 
-        private IEnumerable<INamedTypeSymbol> GetTypes(INamespaceSymbol ns)
+        private IEnumerable<INamedTypeSymbol> GetTypes(INamespaceSymbol ns, IEnumerable<MetadataReference> assemblies)
         {
             foreach (var type in ns.GetTypeMembers().OfType<INamedTypeSymbol>())
             {
-                if (type.Locations.Any(l => l.Kind != LocationKind.SourceFile))
+                if(type.Locations.Any(l => l.Kind == LocationKind.MetadataFile))
+                {
+                    var loc = type.Locations.First(l => l.Kind == LocationKind.MetadataFile);
+                    var meta = loc.MetadataModule.GetMetadata();
+                    if (!assemblies.Select(n=>n.Display.EndsWith(meta.Name)).Any())
+                        continue;
+                }
+                else if (type.Locations.Any(l => l.Kind != LocationKind.SourceFile))
                     continue;
                 if (type.DeclaredAccessibility == Accessibility.Private && !GeneratorSettings.ShowPrivateMembers)
                     continue;
@@ -87,7 +99,7 @@ namespace Generator
             }
         }
 
-        internal async Task<Compilation> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors = null, Regex[] filters = null)
+        internal async Task<(Compilation compilation, List<MetadataReference> metadata)> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null)
         {
             Console.WriteLine("Creating workspace...");
 
@@ -96,32 +108,47 @@ namespace Generator
             ws.AddSolution(solutionInfo);
             var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Default, "CSharpExample", "CSharpExample", "C#");
             ws.AddProject(projectInfo);
-            foreach (var path in paths)
+            if (paths != null)
             {
-                if (path.StartsWith("http://") || path.StartsWith("https://"))
+                foreach (var path in paths)
                 {
-                    await DownloadDocumentsAsync(path, ws, projectInfo.Id,  filters).ConfigureAwait(false);
-                }
-                else if (path.EndsWith(".zip"))
-                {
-                    LoadCompressedDocuments(path, ws, projectInfo.Id, filters);
-                }
-                else
-                {
-                    LoadFolderDocuments(path, ws, projectInfo.Id, filters);
+                    if (path.StartsWith("http://") || path.StartsWith("https://"))
+                    {
+                        await DownloadDocumentsAsync(path, ws, projectInfo.Id, filters).ConfigureAwait(false);
+                    }
+                    else if (path.EndsWith(".zip"))
+                    {
+                        LoadCompressedDocuments(path, ws, projectInfo.Id, filters);
+                    }
+                    else
+                    {
+                        LoadFolderDocuments(path, ws, projectInfo.Id, filters);
+                    }
                 }
             }
             Console.WriteLine("Compiling...");
             string mscorlib = @"c:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll";
             var project = ws.CurrentSolution.Projects.Single();
+            List<MetadataReference> metadata = new List<MetadataReference>();
+            if (assemblies != null)
+            {
+                foreach (var assm in assemblies)
+                {
+                    var metaref = MetadataReference.CreateFromFile(assm);
+                    project = project.AddMetadataReference(metaref);
+                    metadata.Add(metaref);
+                }
+            }
+
             if (File.Exists(mscorlib))
             {
                 project = project.WithParseOptions(new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
                 var metaref = MetadataReference.CreateFromFile(mscorlib);
-                project = project.AddMetadataReference(metaref);
+                //project = project.AddMetadataReference(metaref);
             }
 
-            return await project.GetCompilationAsync().ConfigureAwait(false);
+            var comp = await project.GetCompilationAsync().ConfigureAwait(false);
+            return (comp, metadata);
         }
 
         private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex[] filters)
@@ -230,12 +257,12 @@ namespace Generator
 
         //************* Difference comparisons *******************/
 
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> preprocessors = null, Regex[] filters = null)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null)
         {
-            var oldCompilation = await CreateCompilationAsync(oldPaths, preprocessors, filters);
-            var newCompilation = await CreateCompilationAsync(newPaths, preprocessors, filters);
-            var oldSymbols = GetSymbols(oldCompilation);
-            var newSymbols = GetSymbols(newCompilation);
+            var oldCompilation = await CreateCompilationAsync(oldPaths, oldAssemblies, preprocessors, filters);
+            var newCompilation = await CreateCompilationAsync(newPaths, newAssemblies, preprocessors, filters);
+            var oldSymbols = GetSymbols(oldCompilation.compilation, oldCompilation.metadata);
+            var newSymbols = GetSymbols(newCompilation.compilation, newCompilation.metadata);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);
             var generator = this.generator as ICodeDiffGenerator;
             generator.Initialize(newSymbols, oldSymbols);
