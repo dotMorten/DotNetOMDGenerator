@@ -61,6 +61,7 @@ namespace Generator.Generators
         public void WriteType(INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             bool isTypeRemoved = type == null && oldType != null;
+            bool isTypeNew = type != null && oldType == null;
             if (isTypeRemoved)
                 type = oldType;
 
@@ -88,7 +89,8 @@ namespace Generator.Generators
                 currentNamespace = nsname;
                 sw.WriteLine($"<h3 class='expander active'>{nsname}</h3><div>");
             }
-            sw.WriteLine($"<div class='objectBox{(isTypeRemoved ? " typeRemoved" : "")}' id='{type.GetFullTypeName()}'>");
+            
+            sw.WriteLine($"<div class='objectBox{(isTypeRemoved ? " typeRemoved" : "")}{(!isTypeNew ? " typeExisting" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;
             var memberBuilder = new StringBuilder();
             {
