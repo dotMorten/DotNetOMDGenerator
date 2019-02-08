@@ -134,9 +134,49 @@ namespace Generator
             {
                 foreach (var assm in assemblies)
                 {
-                    var metaref = MetadataReference.CreateFromFile(assm);
-                    project = project.AddMetadataReference(metaref);
-                    metadata.Add(metaref);
+                    IEnumerable<FileInfo> files = Enumerable.Empty<FileInfo>();
+                    if (File.Exists(assm))
+                    {
+                        files = new FileInfo[] { new FileInfo(assm) };
+                    }
+                    else
+                    {
+                        string recursive = Path.DirectorySeparatorChar + "**" + Path.DirectorySeparatorChar;
+                        bool isRecursive = false;
+                        var d = assm;
+                        var fn = Path.GetFileName(assm);
+                        if (d.Contains(recursive))
+                        {
+                            d = d.Substring(0, d.IndexOf(recursive));
+                            isRecursive = true;
+                        }
+                        else if (Directory.Exists(d))
+                        {
+                            fn = null;
+                        }
+                        else
+                        {
+                            d = Path.GetDirectoryName(d);
+                        }
+                        var dir = new DirectoryInfo(d);
+                        if (!dir.Exists)
+                            throw new DirectoryNotFoundException(d);
+                        if (string.IsNullOrEmpty(fn))
+                        {
+                            files = dir.GetFiles("*.dll", isRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+                        }
+                        else
+                        {
+                            var di = new DirectoryInfo(d);
+                            files = dir.GetFiles(fn, isRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+                        }
+                    }
+                    foreach (var item in files)
+                    {
+                        var metaref = MetadataReference.CreateFromFile(item.FullName);
+                        project = project.AddMetadataReference(metaref);
+                        metadata.Add(metaref);
+                    }
                 }
             }
 
