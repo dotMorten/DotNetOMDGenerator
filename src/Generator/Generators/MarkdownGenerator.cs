@@ -116,15 +116,6 @@ namespace Generator.Generators
             var symbols = Generator.GetChangedSymbols(
                 type == oldType ? Enumerable.Empty<INamedTypeSymbol>() : type.GetAllNestedTypes(),
                 oldType == null ? Enumerable.Empty<INamedTypeSymbol>() : oldType.GetAllNestedTypes());
-            //sw.WriteLine($"<div class='header {kind}{(isEmpty ? " noMembers" : "")}'>");
-
-            //Write class name + Inheritance
-            //var brief = type.GetDescription();
-            //sw.Write($"<span ");
-            //brief = $"{type.ToDisplayString(Generator.Constants.AllFormat)}\b{brief}";
-            //if (!string.IsNullOrEmpty(brief))
-            //    sw.Write($"title=\"{System.Web.HttpUtility.HtmlEncode(brief)}\"");
-            //sw.Write($">{System.Web.HttpUtility.HtmlEncode(type.Name)}");
             if (type.BaseType != null && type.BaseType.Name != "Object" && type.TypeKind != TypeKind.Enum)
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
@@ -399,6 +390,8 @@ namespace Generator.Generators
             {
                 name = FormatType(f.Type) + " " + name;
             }
+            if (member.ContainingType.TypeKind == TypeKind.Interface)
+                return name; //Don't add accessor to interface members
             return accessor + " " + name;
         }
 
