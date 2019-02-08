@@ -26,23 +26,24 @@ namespace Generator
 
             ICodeGenerator generator = null;
             var arg = ArgumentParser.Parse(args);
-            //if (arg.ContainsKey("format"))
-            //{
-            //    if (arg["format"] == "image")
-            //        generator = new Generators.OMDGenerator();
-            //    else if (arg["format"] == "html")
-            //        generator = new Generators.HtmlOmdGenerator();
-            //    else
-            //    {
-            //        Console.WriteLine("Invalid format parameter.");
-            //        WriteUsage();
-            //        return;
-            //    }
-            //}
-            //else
-            //{
+
+            if (arg.ContainsKey("format"))
+            {
+                if (arg["format"] == "md")
+                    generator = new Generators.MarkdownGenerator();
+                else if (arg["format"] == "html")
+                    generator = new Generators.HtmlOmdGenerator();
+                else
+                {
+                    Console.WriteLine("Invalid format parameter.");
+                    WriteUsage();
+                    return;
+                }
+            }
+            else
+            {
                 generator = new Generators.HtmlOmdGenerator();
-            //}
+            }
             if (!arg.ContainsKey("source") && !arg.ContainsKey("assemblies"))
             {
                 WriteUsage();
@@ -59,7 +60,7 @@ namespace Generator
             string[] oldSource = arg.ContainsKey("compareSource") ? arg["compareSource"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] preprocessors = arg.ContainsKey("preprocessors") ? arg["preprocessors"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] assemblies = arg.ContainsKey("assemblies") ? arg["assemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : new string[] { };
-            string[] compareAssemblies = arg.ContainsKey("compareAssemblies") ? arg["compareAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : new string[] { };
+            string[] compareAssemblies = arg.ContainsKey("compareAssemblies") ? arg["compareAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             var g = new Generator(generator);
             if (oldSource != null || compareAssemblies != null)
                 g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray()).Wait();

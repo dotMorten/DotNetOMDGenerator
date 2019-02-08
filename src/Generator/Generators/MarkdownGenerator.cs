@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Generator.Generators
 {
-    public class MarkdownImdGenerator : ICodeGenerator, ICodeDiffGenerator
+    public class MarkdownGenerator : ICodeGenerator, ICodeDiffGenerator
     {
         private System.IO.StreamWriter sw;
         private List<INamedTypeSymbol> allSymbols;
@@ -27,10 +27,7 @@ namespace Generator.Generators
             if (fi.Attributes == System.IO.FileAttributes.Directory)
                 outLocation = System.IO.Path.Combine(outLocation, "OMD.md");
             sw = new System.IO.StreamWriter(outLocation);
-            //using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdHeader.html"))
-            //{
-            //    s.CopyTo(sw.BaseStream);
-            //}
+            WriteLine("<pre>", 0);
         }
 
         public void Complete()
@@ -38,7 +35,8 @@ namespace Generator.Generators
             if (currentNamespace != null)
             {
                 //close the last namespace section
-                sw.WriteLine("}");
+                WriteLine("}</pre>", 0);
+                WriteLine("Generated with (.NET Object Model Diagram Generator)[https://github.com/dotMorten/DotNetOMDGenerator]", 0);
                 sw.Flush();
             }
             sw.Flush();
@@ -54,20 +52,25 @@ namespace Generator.Generators
             WriteType(type, oldType, true);
         }
 
-        private void WriteLine(string line, int indent = 0)
+        private void WriteLine(string line, int indent)
         {
             sw.Write("> ");
-            for (int i = 0; i < indent; i++)
+            if (!string.IsNullOrEmpty(line))
             {
-                line = "\t" + line.Replace("\n", "\n\t");
+                for (int i = 0; i < indent; i++)
+                {
+                    line = "\t" + line.Replace("\n", "\n\t");
+                }
+                line = line.Replace("\n", "\n> ");
+                line = line.Replace("\t", "    ");
+                sw.Write(line);
             }
-            line = line.Replace("\n", "\n> ");
-            line = line.Replace("  ", "&nbsp;&nbsp;");
-            line = line.Replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;");
-            sw.Write(line);
             sw.WriteLine();
         }
-
+        private const string RemoveStart = "<strike>";
+        private const string RemoveEnd = "</strike>";
+        private const string AddedStart = "<b>";
+        private const string AddedEnd = "</b>";
         public void WriteType(INamedTypeSymbol type, INamedTypeSymbol oldType, bool isComparison, int indent = 0)
         {
             bool isTypeRemoved = type == null && oldType != null;
@@ -79,7 +82,16 @@ namespace Generator.Generators
             switch (type.TypeKind)
             {
                 case TypeKind.Struct:
-                case TypeKind.Class: kind = "class"; break;
+                case TypeKind.Class:
+                    kind = "class";
+                    if (type.IsSealed && (oldType == null || oldType.IsSealed)) kind = "sealed " + kind;
+                    else if (type.IsSealed && !oldType.IsSealed) kind = $"{AddedStart}sealed{AddedEnd} {kind}";
+                    else if (!type.IsSealed && oldType != null && oldType.IsSealed) kind = $"{RemoveStart}sealed{RemoveEnd} {kind}";
+
+                    if (type.IsStatic && (oldType == null || oldType.IsStatic)) kind = "static " + kind;
+                    else if (type.IsStatic && !oldType.IsStatic) kind = $"{AddedStart}static{AddedEnd} {kind}";
+                    else if (!type.IsStatic && oldType != null && oldType.IsStatic) kind = $"{RemoveStart}static{RemoveEnd} {kind}";
+                    break;
                 case TypeKind.Delegate: kind = "delegate"; break;
                 case TypeKind.Enum: kind = "enum"; break;
                 case TypeKind.Interface: kind = "interface"; break;
@@ -93,14 +105,13 @@ namespace Generator.Generators
                 if (currentNamespace != null)
                 {
                     //close the current namespace section
-                    sw.WriteLine("}");
+                    WriteLine("}", indent);
                 }
-                WriteLine($"namespace {nsname}\n{{");
+                WriteLine($"namespace {nsname}\n{{", indent);
                 currentNamespace = nsname;
             }
-
-            string className = type.GetFullTypeName();
-
+            
+            string className = AccessorToString(type.DeclaredAccessibility) + " " + kind + " " + type.GetFullTypeName();
 
             var symbols = Generator.GetChangedSymbols(
                 type == oldType ? Enumerable.Empty<INamedTypeSymbol>() : type.GetAllNestedTypes(),
@@ -121,8 +132,10 @@ namespace Generator.Generators
                     className += (" : ");
                     if (oldType != null && !isTypeRemoved)
                     {
-                        className += $"~~{FormatType(oldType.BaseType)}~~";
+                        className += $"{RemoveStart}{FormatType(oldType.BaseType)}{RemoveEnd}"; //removed baseclass
                     }
+                    else if(oldType == null && isComparison && !isTypeNew)
+                        className += $"{AddedStart}{FormatType(type.BaseType)}{AddedEnd}"; //new baseclass
                     else
                         className += FormatType(type.BaseType);
                 }
@@ -138,18 +151,24 @@ namespace Generator.Generators
                     else
                         className += " : ";
                     var typeName = FormatType(iface.symbol);
-                    if (iface.wasRemoved && !isTypeRemoved) typeName = $"~~{typeName}~~";
-                    className += typeName;
+                    if (iface.wasRemoved && !isTypeRemoved)
+                        typeName = $"{RemoveStart}{typeName}{RemoveEnd}";
+                    else if (isComparison && !isTypeNew)
+                        className += $"{AddedStart}{typeName}{AddedEnd}";
+                    else
+                        className += typeName;
                 }
             }
+
             if (isTypeRemoved)
             {
-                WriteLine($"~~{className}~~", indent + 1);
+                WriteLine($"{RemoveStart}{className} {{ ... }}{RemoveEnd}", indent + 1);
                 return;
             }
 
 
-            WriteLine($"{(!isTypeNew ? "+" : "")}' {className}\n{{", indent + 1);
+            WriteLine($"{(isTypeNew && isComparison ? AddedStart : "")}{className}", indent + 1);
+            WriteLine("{", indent + 1); //Begin class
             //List out members
             if (type.GetConstructors(oldType).Any())
             {
@@ -157,7 +176,9 @@ namespace Generator.Generators
                 {
                     var str = FormatMember(method.symbol);
                     if (method.wasRemoved)
-                        str = $"~~{str}~~";
+                        str = $"{RemoveStart}{str}{RemoveEnd}";
+                    else if (isComparison && !isTypeNew)
+                        str = $"{AddedStart}{str}{AddedEnd}";
                     WriteLine(str, indent + 2);
                 }
             }
@@ -167,10 +188,9 @@ namespace Generator.Generators
                 {
                     var str = FormatMember(method.symbol);
                     if (method.wasRemoved)
-                    {
-                        if (method.wasRemoved)
-                            str = $"~~{str}~~";
-                    }
+                        str = $"{RemoveStart}{str}{RemoveEnd}";
+                    else if (isComparison && !isTypeNew)
+                        str = $"{AddedStart}{str}{AddedEnd}";
                     WriteLine(str, indent + 2);
                 }
             }
@@ -180,7 +200,9 @@ namespace Generator.Generators
                 {
                     var str = FormatMember(method.symbol);
                     if (method.wasRemoved)
-                        str = $"~~{str}~~";
+                        str = $"{RemoveStart}{str}{RemoveEnd}";
+                    else if (isComparison && !isTypeNew)
+                        str = $"{AddedStart}{str}{AddedEnd}";
                     WriteLine(str, indent + 2);
                 }
             }
@@ -190,7 +212,9 @@ namespace Generator.Generators
                 {
                     var str = FormatMember(method.symbol);
                     if (method.wasRemoved)
-                        str = $"~~{str}~~";
+                        str = $"{RemoveStart}{str}{RemoveEnd}";
+                    else if (isComparison && !isTypeNew)
+                        str = $"{AddedStart}{str}{AddedEnd}";
                     WriteLine(str, indent + 2);
                 }
             }
@@ -200,7 +224,9 @@ namespace Generator.Generators
                 {
                     var str = FormatMember(method.symbol);
                     if (method.wasRemoved)
-                        str = $"~~{str}~~";
+                        str = $"{RemoveStart}{str}{RemoveEnd}";
+                    else if (isComparison && !isTypeNew)
+                        str = $"{AddedStart}{str}{AddedEnd}";
                     WriteLine(str, indent + 2);
                 }
             }
@@ -213,7 +239,9 @@ namespace Generator.Generators
                     if (e.symbol.HasConstantValue)
                         str += " = " + e.symbol.ConstantValue?.ToString();
                     if (e.wasRemoved)
-                        str = $"~~{str}~~";
+                        str = $"{RemoveStart}{str}{RemoveEnd}";
+                    else if (isComparison && !isTypeNew)
+                        str = $"{AddedStart}{str}{AddedEnd}";
                     WriteLine(str, indent + 2);
                 }
 
@@ -221,13 +249,14 @@ namespace Generator.Generators
 
             if (symbols.Any())
             {
+                WriteLine(null, 0);
                 foreach (var t in symbols)
                 {
-                    WriteType(t.newSymbol, t.oldSymbol, isComparison, indent + 2);
+                    WriteType(t.newSymbol, t.oldSymbol, isComparison && !isTypeNew, indent + 1);
                 }
             }
 
-            WriteLine("}");
+            WriteLine("}" + (isTypeNew && isComparison ? AddedEnd:""), indent + 1); //EndClass
             sw.Flush();
         }
 
@@ -319,7 +348,7 @@ namespace Generator.Generators
                 name = member.ContainingType.Name;
             }
             name = Briefify(member, name);
-
+            string accessor = AccessorToString(member.DeclaredAccessibility);
             if (member is IPropertySymbol p)
             {
                 name += " { ";
@@ -344,32 +373,33 @@ namespace Generator.Generators
                     name += "set; ";
                 }
 
-                name += "} : " + FormatType(p.Type);
+                name = FormatType(p.Type) + " " + name + " }";
             }
             else if (member is IMethodSymbol m)
             {
                 if (m.TypeArguments.Any())
                 {
-                    name += System.Web.HttpUtility.HtmlEncode("<" + string.Join(", ", m.TypeArguments.Select(t => t.ToDisplayString())) + ">");
+                    name += "&lt;" + string.Join(", ", m.TypeArguments.Select(t => t.ToDisplayString())) + "&gt;";
                 }
 
                 name += "(";
                 name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr) + (pr.HasExplicitDefaultValue ? (" = " + (pr.ExplicitDefaultValue?.ToString() ?? "null")) : "")));
-                name += ")";
+                name += ");";
                 if (!m.ReturnsVoid)
                 {
-                    name += " : " + FormatType(m.ReturnType);
+                    name = FormatType(m.ReturnType) + " " + name;
                 }
+                
             }
             else if (member is IEventSymbol e)
             {
-                name += " : " + FormatType(e.Type);
+                name = FormatType(e.Type) + " " + name;
             }
             else if (member is IFieldSymbol f)
             {
-                name += " : " + FormatType(f.Type);
+                name = FormatType(f.Type) + " " + name;
             }
-            return name;
+            return accessor + " " + name;
         }
 
         private static string Briefify(ISymbol symbol, string content = null)
