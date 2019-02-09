@@ -13,8 +13,9 @@ Required parameters:
 Optional parameters:
   compareSource Specifies a folder to compare source and generate a diff model
                 This can be useful for finding API changes or compare branches
-  format        Format to generate: 'image' generates an image for each object.
-                'html' a single html output (html is default)
+  format        Format to generate: 
+                   'html' a single html output (html is default)
+                   'md' for markdown you can copy-paste to for instance GitHub
   preprocessors Define a set of preprocessors values. Use ; to separate multiple
   exclude       Defines one or more strings that can't be part of the path Ie '*/Samples/*;*/UnitTests/*'
                 (use forward slash for folder separators)
