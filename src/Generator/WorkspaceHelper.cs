@@ -65,11 +65,11 @@ namespace Generator
         {
             foreach (var type in ns.GetTypeMembers().OfType<INamedTypeSymbol>())
             {
-                if(type.Locations.Any(l => l.Kind == LocationKind.MetadataFile))
+                if (type.Locations.Any(l => l.Kind == LocationKind.MetadataFile))
                 {
                     var loc = type.Locations.First(l => l.Kind == LocationKind.MetadataFile);
                     var meta = loc.MetadataModule.GetMetadata();
-                    if (!assemblies.Select(n=>n.Display.EndsWith(meta.Name)).Any())
+                    if (!assemblies.Any(n => n.Display.EndsWith(meta.Name)))
                         continue;
                 }
                 else if (type.Locations.Any(l => l.Kind != LocationKind.SourceFile))
@@ -214,7 +214,8 @@ namespace Generator
                             var buffer = new byte[65536];
                             long read = 0;
                             int count = -1;
-                            while (count != 0) {
+                            while (count != 0)
+                            {
                                 count = await s.ReadAsync(buffer, 0, buffer.Length);
                                 if (count > 0)
                                     await f.WriteAsync(buffer, 0, count);
@@ -436,7 +437,15 @@ namespace Generator
                 (SymbolDisplayGenericsOptions)255,
                 (SymbolDisplayMemberOptions)255,
                 (SymbolDisplayDelegateStyle)255, (SymbolDisplayExtensionMethodStyle)255,
-                (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.NameOnly, 
+                (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.NameOnly,
+                (SymbolDisplayLocalOptions)255, (SymbolDisplayKindOptions)255, (SymbolDisplayMiscellaneousOptions)255);
+            public static readonly SymbolDisplayFormat AllFormatWithoutContaining = new SymbolDisplayFormat(
+                SymbolDisplayGlobalNamespaceStyle.Omitted,
+                SymbolDisplayTypeQualificationStyle.NameOnly,
+                (SymbolDisplayGenericsOptions)255,
+                (SymbolDisplayMemberOptions)223,
+                (SymbolDisplayDelegateStyle)255, (SymbolDisplayExtensionMethodStyle)255,
+                (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.NameOnly,
                 (SymbolDisplayLocalOptions)255, (SymbolDisplayKindOptions)255, (SymbolDisplayMiscellaneousOptions)255);
         }
         internal class PropertyComparer : IEqualityComparer<IPropertySymbol>

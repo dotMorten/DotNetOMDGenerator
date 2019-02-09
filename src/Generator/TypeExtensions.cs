@@ -96,12 +96,41 @@ namespace Generator
         public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved)> GetMethods(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetMethods(type ?? oldType).Select(p => (p, type == null));
-            var newMembers = GetMethods(type);
-            var oldMembers = GetMethods(oldType);
-            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false))
-                .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true)))
-             .OrderBy(t => string.Join(',', t.Item1.Parameters.Select(p => p.Name))).OrderBy(t => t.Item1.Name);
+            {
+                foreach (var item in GetMethods(type ?? oldType).Select(p => (p, type == null)))
+                    yield return item;
+            }
+            else
+            {
+                var newMembers = GetMethods(type);
+                var oldMembers = GetMethods(oldType);
+                var result = newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false))
+                    .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true)))
+                 .OrderBy(t => string.Join(',', t.Item1.Parameters.Select(p => p.Name))).OrderBy(t => t.Item1.Name);
+                foreach (var item in result)
+                {
+                    if (item.Item2 == true)//Item was removed. Check if it was just moved up to a base-class
+                    {
+                        if (item.p.IsOverride)
+                            continue; //If override has been removed, just ignore, as it's not a removed method in that sense
+                        var basetype = type.BaseType;
+                        while (basetype != null)
+                        {
+                            var members = basetype.GetMembers(item.p.Name);
+                            if (members.Any())
+                            {
+                                var identifier = item.p.ToDisplayString(Generator.Constants.AllFormatWithoutContaining);
+                                if (members.OfType<IMethodSymbol>().Any(m=>identifier == m.ToDisplayString(Generator.Constants.AllFormatWithoutContaining)))
+                                {
+                                    continue;
+                                }
+                            }
+                            basetype = basetype.BaseType;
+                        }
+                    }
+                    yield return item;
+                }
+            }
         }
 
         public static IEnumerable<IPropertySymbol> GetProperties(this INamedTypeSymbol type)
