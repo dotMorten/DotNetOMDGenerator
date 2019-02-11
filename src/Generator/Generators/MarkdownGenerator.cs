@@ -49,14 +49,13 @@ namespace Generator.Generators
 
         private void WriteLine(string line, int indent)
         {
-            sw.Write("> ");
             if (!string.IsNullOrEmpty(line))
             {
                 for (int i = 0; i < indent; i++)
                 {
                     line = "\t" + line.Replace("\n", "\n\t");
                 }
-                line = line.Replace("\n", "\n> ");
+                line = line.Replace("\n", "\n");
                 line = line.Replace("\t", "    ");
                 sw.Write(line);
             }
@@ -106,7 +105,7 @@ namespace Generator.Generators
                 currentNamespace = nsname;
             }
             
-            string className = AccessorToString(type.DeclaredAccessibility) + " " + kind + " " + type.GetFullTypeName();
+            string className = AccessorToString(type.DeclaredAccessibility) + " " + kind + " " + type.Name;
 
             var symbols = Generator.GetChangedSymbols(
                 type == oldType ? Enumerable.Empty<INamedTypeSymbol>() : type.GetAllNestedTypes(),
