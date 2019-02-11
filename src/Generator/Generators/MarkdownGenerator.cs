@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis;
 
 namespace Generator.Generators
 {
-    public class MarkdownGenerator : ICodeGenerator, ICodeDiffGenerator
+    internal class MarkdownGenerator : ICodeGenerator, ICodeDiffGenerator
     {
         private System.IO.StreamWriter sw;
         private List<INamedTypeSymbol> allSymbols;

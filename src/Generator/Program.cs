@@ -82,7 +82,7 @@ namespace Generator
         private static void WriteUsage()
         {
             Console.WriteLine("\nUsage:");
-            Console.WriteLine(" dotnet generateomd.dll /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /output=[out location] /filter=[regex] /ShowPrivate /ShowInternal");
+            Console.WriteLine(" /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /output=[out location] /format=[html,md] /filter=[regex] /showPrivate /showInternal");
             Console.WriteLine("\nRequired parameters (one or more):");
             Console.WriteLine("  source               Specifies the folder of source files to include for the object model.\n                       Separate with ; for multiple folders");
             Console.WriteLine("  assemblies           Specifies a set of assemblies to include for the object model.\n                       Separate with ; for multiple assemblies");
@@ -90,7 +90,6 @@ namespace Generator
             Console.WriteLine("  compareSource        Specifies a folder to compare source and generate a diff model\n                       This can be useful for finding API changes or compare branches");
             Console.WriteLine("  compareAssemblies    Specifies a set of assemblies to include to generate a adiff model.\n                       Separate with ; for multiple assemblies");
             Console.WriteLine("  output        Output location");
-            // Console.WriteLine("  format        Format to generate: 'image' generates an image for each object.\n                'html' a single html output (html is default)");
             Console.WriteLine("  preprocessors        Define a set of preprocessors values. Use ; to separate multiple");
             Console.WriteLine("  exclude              Defines one or more strings that can't be part of the path Ie '/Samples/;/UnitTests/'\n                       (use forward slash for folder separators)");
             Console.WriteLine("  regexfilter          Defines a regular expression for filtering on full file names in the source");
