@@ -212,13 +212,13 @@ namespace Generator.Generators
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
                 {
-                    sw.Write(" : ");
                     if (oldType != null && oldType.BaseType.Name != "Object")
                     {
-                        sw.Write($"<span class='memberRemoved'>{FormatType(oldType.BaseType)}</span>");
+                        sw.Write($" : <span class='memberRemoved'>{FormatType(oldType.BaseType)}</span>");
+                        if (type.BaseType.Name != "Object") sw.Write($"{FormatType(type.BaseType)}");
                     }
-                    if (type.BaseType.Name != "Object")
-                        sw.Write(FormatType(type.BaseType));
+                    else if (type.BaseType.Name != "Object")
+                        sw.Write($" : {FormatType(type.BaseType)}");
                 }
             }
             else if(kind == "enum")

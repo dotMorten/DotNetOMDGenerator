@@ -120,17 +120,17 @@ namespace Generator.Generators
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
                 {
-                    className += " : ";
                     if (oldType != null && oldType.BaseType.Name != "Object" && !isTypeRemoved)
                     {
-                        className += $"{RemoveStart}{FormatType(oldType.BaseType)}{RemoveEnd}"; //removed baseclass
+                        className += $" : {RemoveStart}{FormatType(oldType.BaseType)}{RemoveEnd}"; //removed baseclass
+                        if (type.BaseType.Name != "Object") className += $"{FormatType(type.BaseType)}";
                     }
                     if (type.BaseType.Name != "Object")
                     {
                         if (isComparison && !isTypeNew)
-                            className += $"{AddedStart}{FormatType(type.BaseType)}{AddedEnd}"; //new baseclass
+                            className += $" : {AddedStart}{FormatType(type.BaseType)}{AddedEnd}"; //new baseclass
                         else
-                            className += $"{FormatType(type.BaseType)}";
+                            className += $" : {FormatType(type.BaseType)}";
                     }
                 }
             }
@@ -242,7 +242,7 @@ namespace Generator.Generators
             {
                 foreach (var method in type.GetEvents(oldType))
                 {
-                    var str = FormatMember(method.symbol);
+                    var str = FormatMember(method.symbol) + ";";
                     if (method.wasRemoved)
                         str = $"{RemoveStart}{str}{RemoveEnd}";
                     else if (isComparison && !isTypeNew)
