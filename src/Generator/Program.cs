@@ -14,13 +14,13 @@ namespace Generator
     {
         public static bool ShowPrivateMembers { get; set; } = false;
         public static bool ShowInternalMembers { get; set; } = false;
-        public static string OutputLocation { get; set; }
+        public static string OutputLocation { get; set; } = "./";
     }
 
     class Program
     {
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             Console.WriteLine("*********************** Object Model Generator ***********************");
 
@@ -52,7 +52,8 @@ namespace Generator
 
             GeneratorSettings.ShowPrivateMembers = arg.ContainsKey("showPrivate");
             GeneratorSettings.ShowInternalMembers = arg.ContainsKey("showInternal");
-            GeneratorSettings.OutputLocation = arg.ContainsKey("output") ? arg["output"] : "./";
+            if(arg.ContainsKey("output"))
+                GeneratorSettings.OutputLocation = arg["output"];
             List<Regex> filters = arg.ContainsKey("exclude") ? arg["exclude"].Split(';', StringSplitOptions.RemoveEmptyEntries).Select(f=>CreateFilter(f)).ToList() : new List<Regex>();
             if(arg.ContainsKey("regexfilter"))
                 filters.Add(new Regex(arg["regexfilter"]));
@@ -62,10 +63,20 @@ namespace Generator
             string[] assemblies = arg.ContainsKey("assemblies") ? arg["assemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : new string[] { };
             string[] compareAssemblies = arg.ContainsKey("compareAssemblies") ? arg["compareAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             var g = new Generator(generator);
+
+            //Set up output filename
+            if (string.IsNullOrEmpty(GeneratorSettings.OutputLocation))
+                GeneratorSettings.OutputLocation = "./";
+            var fi = new System.IO.FileInfo(GeneratorSettings.OutputLocation);
+            if (!fi.Directory.Exists)
+                throw new System.IO.DirectoryNotFoundException(fi.Directory.FullName);
+            if (fi.Attributes == System.IO.FileAttributes.Directory)
+                GeneratorSettings.OutputLocation = System.IO.Path.Combine(GeneratorSettings.OutputLocation, "OMD");
+
             if (oldSource != null || compareAssemblies != null)
-                g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray()).Wait();
+                await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray());
             else
-                g.Process(source, assemblies, preprocessors, filters.ToArray()).Wait();
+                await g.Process(source, assemblies, preprocessors, filters.ToArray());
 
             if(System.Diagnostics.Debugger.IsAttached)
                 Console.ReadKey();
@@ -77,7 +88,6 @@ namespace Generator
              Replace("\\*", ".*").
              Replace("\\?", ".") + "$", caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase);
         }
-
 
         private static void WriteUsage()
         {

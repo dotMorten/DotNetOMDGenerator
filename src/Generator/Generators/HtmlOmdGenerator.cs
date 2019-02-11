@@ -20,13 +20,8 @@ namespace Generator.Generators
             this.allSymbols = allSymbols;
             this.oldSymbols = oldSymbols;
             var outLocation = GeneratorSettings.OutputLocation;
-            var fi = new System.IO.FileInfo(outLocation);
-            if (!fi.Directory.Exists)
-            {
-                throw new System.IO.DirectoryNotFoundException(fi.Directory.FullName);
-            }
-            if (fi.Attributes == System.IO.FileAttributes.Directory)
-                outLocation = System.IO.Path.Combine(outLocation, "OMD.html");
+            if (string.IsNullOrEmpty(new System.IO.FileInfo(outLocation).Extension))
+                outLocation += ".html";
             sw = new System.IO.StreamWriter(outLocation);
             using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdHeader.html"))
             {
