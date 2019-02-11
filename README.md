@@ -65,16 +65,18 @@ It can also be used to compare two folders (for instance two separate branches) 
 
 Generate OMD for .NET Core FX source code, and ignore ref and test folders:
 ```
-dotnet Generator.dll /source=c:\github\dotnet\corefx\src /exclude="*/ref/*;*/tests/*;*/perftests/*"
+generateomd /source=c:\github\dotnet\corefx\src /exclude="*/ref/*;*/tests/*;*/perftests/*"
 ```
 
 Compare .NET CoreFX Master with v2.0.0 repo branches directly from their Github zipped downloads:
 
 ```
-dotnet Generator.dll /source=https://github.com/dotnet/corefx/archive/master.zip /compareSource=https://github.com/dotnet/corefx/archive/release/2.0.0.zip /exclude="*/ref/*;*/tests/*;*/perftests/*"
+generateomd /source=https://github.com/dotnet/corefx/archive/master.zip /compareSource=https://github.com/dotnet/corefx/archive/release/2.0.0.zip /exclude="*/ref/*;*/tests/*;*/perftests/*"
 ```
 
-
-
+What's new in Xamarin.Forms? Compare assemblies from the nuget cache:
+```
+generateomd /assemblies=%USERPROFILE%\.nuget\packages\xamarin.forms\3.3.0.912540\lib\netstandard2.0\*.dll /compareAsssemblies=%USERPROFILE%\.nuget\packages\xamarin.forms\3.2.0.871581\lib\netstandard2.0\*.dll
+```
 
 
