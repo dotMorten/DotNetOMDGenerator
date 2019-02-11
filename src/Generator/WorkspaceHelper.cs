@@ -130,7 +130,6 @@ namespace Generator
                 }
             }
             Console.WriteLine("Compiling...");
-            string mscorlib = @"c:\Windows\Microsoft.NET\Framework\v4.0.30319\mscorlib.dll";
             var project = ws.CurrentSolution.Projects.Single();
             List<MetadataReference> metadata = new List<MetadataReference>();
             if (assemblies != null)
@@ -183,11 +182,13 @@ namespace Generator
                 }
             }
 
+            //Ensure mscorlib is referenced
+            string mscorlib = typeof(System.Enum).Assembly.Location;
             if (File.Exists(mscorlib))
             {
                 project = project.WithParseOptions(new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
                 var metaref = MetadataReference.CreateFromFile(mscorlib);
-                //project = project.AddMetadataReference(metaref);
+                project = project.AddMetadataReference(metaref);
             }
 
             var comp = await project.GetCompilationAsync().ConfigureAwait(false);
