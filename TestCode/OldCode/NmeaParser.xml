@@ -1,0 +1,1238 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>NmeaParser</name>
+    </assembly>
+    <members>
+        <member name="T:NmeaParser.BufferedStreamDevice">
+            <summary>
+            An abstract generic NMEA device that reads a stream at a decreased pace,
+            mostly used to emulate NMEA input from files and strings.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.BufferedStreamDevice"/> class.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.#ctor(System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.BufferedStreamDevice"/> class.
+            </summary>
+            <param name="readSpeed">The time to wait between each group of lines being read in milliseconds</param>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.GetStreamAsync">
+            <summary>
+            Gets the stream to perform buffer reads on.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.OpenStreamAsync">
+            <summary>
+            Opens the stream asynchronous.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.CloseStreamAsync(System.IO.Stream)">
+            <summary>
+            Closes the stream asynchronous.
+            </summary>
+            <param name="stream">The stream.</param>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.BufferedStream.#ctor(System.IO.StreamReader,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.BufferedStreamDevice.BufferedStream"/> class.
+            </summary>
+            <param name="stream">The stream.</param>
+            <param name="readSpeed">The read speed in milliseconds.</param>
+        </member>
+        <member name="P:NmeaParser.BufferedStreamDevice.BufferedStream.CanRead">
+            <summary>
+            Gets a value indicating whether this instance can read.
+            </summary>
+            <value>
+              <c>true</c> if this instance can read; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="P:NmeaParser.BufferedStreamDevice.BufferedStream.CanSeek">
+            <summary>
+            Gets a value indicating whether this instance can seek.
+            </summary>
+            <value>
+              <c>true</c> if this instance can seek; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="P:NmeaParser.BufferedStreamDevice.BufferedStream.CanWrite">
+            <summary>
+            Gets a value indicating whether this instance can write.
+            </summary>
+            <value>
+              <c>true</c> if this instance can write; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.BufferedStream.Flush">
+            <summary>
+            Flushes this instance.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.BufferedStreamDevice.BufferedStream.Length">
+            <summary>
+            Gets the length.
+            </summary>
+            <value>
+            The length.
+            </value>
+        </member>
+        <member name="P:NmeaParser.BufferedStreamDevice.BufferedStream.Position">
+            <summary>
+            Gets or sets the position.
+            </summary>
+            <value>
+            The position.
+            </value>
+            <exception cref="T:System.NotSupportedException"></exception>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.BufferedStream.Read(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            Reads the specified buffer.
+            </summary>
+            <param name="buffer">The buffer.</param>
+            <param name="offset">The offset.</param>
+            <param name="count">The count.</param>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.BufferedStream.Seek(System.Int64,System.IO.SeekOrigin)">
+            <summary>
+            Seeks the specified offset.
+            </summary>
+            <param name="offset">The offset.</param>
+            <param name="origin">The origin.</param>
+            <returns></returns>
+            <exception cref="T:System.NotSupportedException"></exception>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.BufferedStream.SetLength(System.Int64)">
+            <summary>
+            Sets the length.
+            </summary>
+            <param name="value">The value.</param>
+            <exception cref="T:System.NotSupportedException"></exception>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.BufferedStream.Write(System.Byte[],System.Int32,System.Int32)">
+            <summary>
+            Writes the specified buffer to the device.
+            </summary>
+            <param name="buffer">The buffer.</param>
+            <param name="offset">The offset.</param>
+            <param name="count">The count.</param>
+            <exception cref="T:System.NotSupportedException"></exception>
+        </member>
+        <member name="M:NmeaParser.BufferedStreamDevice.BufferedStream.Dispose(System.Boolean)">
+            <summary>
+            Releases unmanaged and - optionally - managed resources.
+            </summary>
+            <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        </member>
+        <member name="P:NmeaParser.IMultiPartMessage.TotalMessages">
+            <summary>
+            Total number of messages of this type in this cycle
+            </summary>
+        </member>
+        <member name="P:NmeaParser.IMultiPartMessage.MessageNumber">
+            <summary>
+            Message number
+            </summary>
+        </member>
+        <member name="T:NmeaParser.NmeaDevice">
+            <summary>
+            A generic abstract NMEA device
+            </summary>
+        </member>
+        <member name="M:NmeaParser.NmeaDevice.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.NmeaDevice"/> class.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.NmeaDevice.OpenAsync">
+            <summary>
+            Opens the device connection.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.NmeaDevice.OpenStreamAsync">
+            <summary>
+            Creates the stream the NmeaDevice is working on top off.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.NmeaDevice.CloseAsync">
+            <summary>
+            Closes the device.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.NmeaDevice.CloseStreamAsync(System.IO.Stream)">
+            <summary>
+            Closes the stream the NmeaDevice is working on top off.
+            </summary>
+            <param name="stream">The stream.</param>
+            <returns></returns>
+        </member>
+        <member name="E:NmeaParser.NmeaDevice.MessageReceived">
+            <summary>
+            Occurs when an NMEA message is received.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.NmeaDevice.Dispose">
+            <summary>
+            Releases unmanaged and - optionally - managed resources.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.NmeaDevice.Dispose(System.Boolean)">
+            <summary>
+            Releases unmanaged and - optionally - managed resources.
+            </summary>
+            <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        </member>
+        <member name="P:NmeaParser.NmeaDevice.IsOpen">
+            <summary>
+            Gets a value indicating whether this device is open.
+            </summary>
+            <value>
+              <c>true</c> if this instance is open; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="T:NmeaParser.NmeaMessageReceivedEventArgs">
+            <summary>
+            Event argument for the <see cref="E:NmeaParser.NmeaDevice.MessageReceived" />
+            </summary>
+        </member>
+        <member name="P:NmeaParser.NmeaMessageReceivedEventArgs.Message">
+            <summary>
+            Gets the nmea message.
+            </summary>
+            <value>
+            The nmea message.
+            </value>
+        </member>
+        <member name="P:NmeaParser.NmeaMessageReceivedEventArgs.IsMultipart">
+            <summary>
+            Gets a value indicating whether this instance is a multi part message.
+            </summary>
+            <value>
+            <c>true</c> if this instance is multi part; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="P:NmeaParser.NmeaMessageReceivedEventArgs.MessageParts">
+            <summary>
+            Gets the message parts if this is a multi-part message and all message parts has been received.
+            </summary>
+            <value>
+            The message parts.
+            </value>
+        </member>
+        <member name="T:NmeaParser.NmeaFileDevice">
+            <summary>
+            A file-based NMEA device reading from a NMEA log file.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.NmeaFileDevice.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.NmeaFileDevice"/> class.
+            </summary>
+            <param name="fileName"></param>
+        </member>
+        <member name="M:NmeaParser.NmeaFileDevice.#ctor(System.String,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.NmeaFileDevice"/> class.
+            </summary>
+            <param name="fileName"></param>
+            <param name="readSpeed">The time to wait between each group of lines being read in milliseconds</param>
+        </member>
+        <member name="P:NmeaParser.NmeaFileDevice.FileName">
+            <summary>
+            Gets the name of the nmea file this device is using.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.NmeaFileDevice.GetStreamAsync">
+            <summary>
+            Gets the stream to perform buffer reads on.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gnss.Gngst">
+            <summary>
+            Position error statistics 
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gnss.Gngst.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.FixTime">
+            <summary>
+            UTC of position fix
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.Rms">
+            <summary>
+            RMS value of the pseudorange residuals; includes carrier phase residuals during periods of RTK (float) and RTK (fixed) processing
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.SemiMajorError">
+            <summary>
+            Error ellipse semi-major axis 1 sigma error, in meters
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.SemiMinorError">
+            <summary>
+            Error ellipse semi-minor axis 1 sigma error, in meters
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.ErrorOrientation">
+            <summary>
+            Error ellipse orientation, degrees from true north
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.SigmaLatitudeError">
+            <summary>
+            Latitude 1 sigma error, in meters
+            </summary>
+            <remarks>
+            The error expressed as one standard deviation.
+            </remarks>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.SigmaLongitudeError">
+            <summary >
+            Longitude 1 sigma error, in meters
+            </summary>
+            <remarks>
+            The error expressed as one standard deviation.
+            </remarks>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gnss.Gngst.SigmaHeightError">
+            <summary >
+            Height 1 sigma error, in meters
+            </summary>
+            <remarks>
+            The error expressed as one standard deviation.
+            </remarks>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Garmin.Pgrme">
+            <summary>
+             Recommended Minimum
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Garmin.Pgrme.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrme.HorizontalError">
+            <summary>
+            Estimated horizontal position error in meters (HPE)
+            </summary>
+            <remarks>Range: 0.0 to 999.9 meters</remarks>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrme.HorizontalErrorUnits">
+            <summary>
+            Horizontal Error unit ('M' for Meters)
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrme.VerticalError">
+            <summary>
+            Estimated vertical position error in meters (VPE)
+            </summary>
+            <remarks>Range: 0.0 to 999.9 meters</remarks>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrme.VerticalErrorUnits">
+            <summary>
+            Vertical Error unit ('M' for Meters)
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrme.SphericalError">
+            <summary>
+            Overall spherical equivalent position error (EPE)
+            </summary>
+            <remarks>Range: 0.0 to 999.9 meters</remarks>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrme.SphericalErrorUnits">
+            <summary>
+            Spherical Error unit ('M' for Meters)
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Garmin.Pgrmz">
+            <summary>
+            Altitude Information
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Garmin.Pgrmz.AltitudeUnit">
+            <summary>
+            Altitude unit
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Garmin.Pgrmz.AltitudeUnit.Unknown">
+            <summary>
+            Unknown
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Garmin.Pgrmz.AltitudeUnit.Feet">
+            <summary>
+            Feet
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Garmin.Pgrmz.PositionFixType">
+            <summary>
+            Position Fix Dimension
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Garmin.Pgrmz.PositionFixType.Unknown">
+            <summary>
+            Unknown
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Garmin.Pgrmz.PositionFixType.NoFix">
+            <summary>
+            No fix
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Garmin.Pgrmz.PositionFixType.Fix2D">
+            <summary>
+            2D Fix
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Garmin.Pgrmz.PositionFixType.Fix3D">
+            <summary>
+            3D Fix
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Garmin.Pgrmz.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrmz.Altitude">
+            <summary>
+            Current altitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrmz.Unit">
+            <summary>
+            Horizontal Error unit ('M' for Meters)
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Garmin.Pgrmz.FixType">
+            <summary>
+            Fix type
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpbod">
+            <summary>
+            Bearing Origin to Destination
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpbod.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpbod.TrueBearing">
+            <summary>
+            True Bearing from start to destination
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpbod.MagneticBearing">
+            <summary>
+            Magnetic Bearing from start to destination
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpbod.OriginId">
+            <summary>
+            Name of origin
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpbod.DestinationId">
+            <summary>
+            Name of destination
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgga">
+            <summary>
+             Global Positioning System Fix Data
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgga.FixQuality">
+            <summary>
+            Fix quality
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.Invalid">
+            <summary>Invalid</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.GpsFix">
+            <summary>GPS</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.DgpsFix">
+            <summary>Differential GPS</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.PpsFix">
+            <summary>Precise Positioning Service</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.Rtk">
+            <summary>Real Time Kinematic (Fixed)</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.FloatRtk">
+            <summary>Real Time Kinematic (Floating)</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.Estimated">
+            <summary>Estimated</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.ManualInput">
+            <summary>Manual input</summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgga.FixQuality.Simulation">
+            <summary>Simulation</summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpgga.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.FixTime">
+            <summary>
+            Time of day fix was taken
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.Latitude">
+            <summary>
+            Latitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.Longitude">
+            <summary>
+            Longitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.Quality">
+            <summary>
+            Fix Quality
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.NumberOfSatellites">
+            <summary>
+            Number of satellites being tracked
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.Hdop">
+            <summary>
+            Horizontal Dilution of Precision
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.Altitude">
+            <summary>
+            Altitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.AltitudeUnits">
+            <summary>
+            Altitude units ('M' for Meters)
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.HeightOfGeoid">
+            <summary>
+            Height of geoid (mean sea level) above WGS84
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.HeightOfGeoidUnits">
+            <summary>
+            Altitude units ('M' for Meters)
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.TimeSinceLastDgpsUpdate">
+            <summary>
+            Time since last DGPS update
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgga.DgpsStationId">
+            <summary>
+            DGPS Station ID Number
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgll">
+            <summary>
+             Geographic position, latitude / longitude
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpgll.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgll.Latitude">
+            <summary>
+            Latitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgll.Longitude">
+            <summary>
+            Longitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgll.FixTime">
+            <summary>
+            Time since last DGPS update
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgll.DataActive">
+            <summary>
+            Gets a value indicating whether data is active.
+            </summary>
+            <value>
+              <c>true</c> if data is active; otherwise, <c>false</c>.
+            </value>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgsa">
+            <summary>
+             Global Positioning System Fix Data
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgsa.ModeSelection">
+            <summary>
+            Mode selection
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgsa.ModeSelection.Auto">
+            <summary>
+            Auto
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgsa.ModeSelection.Manual">
+            <summary>
+            Manual mode
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgsa.Mode">
+            <summary>
+            Fix Mode
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgsa.Mode.NotAvailable">
+            <summary>
+            Not available
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgsa.Mode.Fix2D">
+            <summary>
+            2D Fix
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gpgsa.Mode.Fix3D">
+            <summary>
+            3D Fix
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpgsa.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsa.GpsMode">
+            <summary>
+            Mode
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsa.FixMode">
+            <summary>
+            Mode
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsa.SVs">
+            <summary>
+            IDs of SVs used in position fix
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsa.Pdop">
+            <summary>
+            Dilution of precision
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsa.Hdop">
+            <summary>
+            Horizontal dilution of precision
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsa.Vdop">
+            <summary>
+            Vertical dilution of precision
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgst">
+            <summary>
+            Position error statistics
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpgst.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.FixTime">
+            <summary>
+            UTC of position fix
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.Rms">
+            <summary>
+            RMS value of the pseudorange residuals; includes carrier phase residuals during periods of RTK (float) and RTK (fixed) processing
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.SemiMajorError">
+            <summary>
+            Error ellipse semi-major axis 1 sigma error, in meters
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.SemiMinorError">
+            <summary>
+            Error ellipse semi-minor axis 1 sigma error, in meters
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.ErrorOrientation">
+            <summary>
+            Error ellipse orientation, degrees from true north
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.SigmaLatitudeError">
+            <summary>
+            Latitude 1 sigma error, in meters
+            </summary>
+            <remarks>
+            The error expressed as one standard deviation.
+            </remarks>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.SigmaLongitudeError">
+            <summary >
+            Longitude 1 sigma error, in meters
+            </summary>
+            <remarks>
+            The error expressed as one standard deviation.
+            </remarks>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgst.SigmaHeightError">
+            <summary >
+            Height 1 sigma error, in meters
+            </summary>
+            <remarks>
+            The error expressed as one standard deviation.
+            </remarks>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gpgsv">
+            <summary>
+             GPS Satellites in view
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpgsv.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsv.TotalMessages">
+            <summary>
+            Total number of messages of this type in this cycle
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsv.MessageNumber">
+            <summary>
+            Message number
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsv.SVsInView">
+            <summary>
+            Total number of SVs in view
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gpgsv.SVs">
+            <summary>
+            Dilution of precision
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpgsv.GetEnumerator">
+            <summary>
+            Returns an enumerator that iterates through the collection.
+            </summary>
+            <returns> A System.Collections.Generic.IEnumerator{SatelliteVehicle} that can be used to iterate through the collection.</returns>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gpgsv.System#Collections#IEnumerable#GetEnumerator">
+            <summary>
+            Returns an enumerator that iterates through a collection.
+            </summary>
+            <returns> An System.Collections.IEnumerator object that can be used to iterate through the collection.</returns>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.SatelliteVehicle">
+            <summary>
+            Satellite vehicle
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.SatelliteVehicle.PrnNumber">
+            <summary>
+            SV PRN number
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.SatelliteVehicle.Elevation">
+            <summary>
+            Elevation in degrees, 90 maximum
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.SatelliteVehicle.Azimuth">
+            <summary>
+            Azimuth, degrees from true north, 000 to 359
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.SatelliteVehicle.SignalToNoiseRatio">
+            <summary>
+            Signal-to-Noise ratio, 0-99 dB (-1 when not tracking) 
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.SatelliteVehicle.System">
+            <summary>
+            Satellite system
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.SatelliteSystem">
+            <summary>
+            Satellite system
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.SatelliteSystem.Unknown">
+            <summary>
+            Unknown
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.SatelliteSystem.Gps">
+            <summary>
+            GPS - Global Positioning System (NAVSTAR)
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.SatelliteSystem.Waas">
+            <summary>
+            WAAS - Wide Area Augmentation System
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.SatelliteSystem.Glonass">
+            <summary>
+            GLONASS - Globalnaya navigatsionnaya sputnikovaya sistema
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gprmb">
+            <summary>
+            Recommended minimum navigation information
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gprmb.DataStatus">
+            <summary>
+            Data status
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gprmb.DataStatus.Ok">
+            <summary>
+            Ok
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gprmb.DataStatus.Warning">
+            <summary>
+            Warning
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gprmb.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.Status">
+            <summary>
+            Data Status
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.CrossTrackError">
+            <summary>
+            Cross-track error (steer left when negative, right when positive)
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.OriginWaypointId">
+            <summary>
+            Origin waypoint ID
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.DestinationWaypointId">
+            <summary>
+            Destination waypoint ID
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.DestinationLatitude">
+            <summary>
+            Destination Latitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.DestinationLongitude">
+            <summary>
+            Destination Longitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.RangeToDestination">
+            <summary>
+            Range to destination in nautical miles
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.TrueBearing">
+            <summary>
+            True bearing to destination
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.Velocity">
+            <summary>
+            Velocity towards destination in knots
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmb.Arrived">
+            <summary>
+            Arrived (<c>true</c> if arrived)
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gprmc">
+            <summary>
+             Recommended Minimum
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gprmc.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmc.FixTime">
+            <summary>
+            Fix Time
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmc.Active">
+            <summary>
+            Gets a value whether the device is active
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmc.Latitude">
+            <summary>
+            Latitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmc.Longitude">
+            <summary>
+            Longitude
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmc.Speed">
+            <summary>
+            Speed over the ground in knots
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmc.Course">
+            <summary>
+            Track angle in degrees True
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprmc.MagneticVariation">
+            <summary>
+            Magnetic Variation
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gprte">
+            <summary>
+             Routes
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.Gps.Gprte.WaypointListType">
+            <summary>
+            Waypoint tpe
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gprte.WaypointListType.CompleteWaypointsList">
+            <summary>
+            Complete list of waypoints
+            </summary>
+        </member>
+        <member name="F:NmeaParser.Nmea.Gps.Gprte.WaypointListType.RemainingWaypointsList">
+            <summary>
+            List of remaining waypoints
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gprte.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprte.TotalMessages">
+            <summary>
+            Total number of messages of this type in this cycle
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprte.MessageNumber">
+            <summary>
+            Message number
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprte.ListType">
+            <summary>
+            Gets the type of the list.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprte.RouteId">
+            <summary>
+            Gets the route identifier.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.Gps.Gprte.Waypoints">
+            <summary>
+            Waypoints
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gprte.System#Collections#Generic#IEnumerable{System#String}#GetEnumerator">
+            <summary>
+            Returns an enumerator that iterates through the collection.
+            </summary>
+            <returns> A System.Collections.Generic.IEnumerator{T} that can be used to iterate through the collection.</returns>
+        </member>
+        <member name="M:NmeaParser.Nmea.Gps.Gprte.System#Collections#IEnumerable#GetEnumerator">
+            <summary>
+            Returns an enumerator that iterates through a collection.
+            </summary>
+            <returns> An System.Collections.IEnumerator object that can be used to iterate through the collection.</returns>
+        </member>
+        <member name="T:NmeaParser.Nmea.LaserRange.LaserRangeMessage">
+            <summary>
+            Laser Range Measurement
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.LaserRange.LaserRangeMessage.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.HorizontalVector">
+            <summary>
+            Gets the horizontal vector.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.HorizontalDistance">
+            <summary>
+            Gets the horizontal distance.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.HorizontalDistanceUnits">
+            <summary>
+            Gets the units of the <see cref="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.HorizontalDistance"/> value.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.HorizontalAngle">
+            <summary>
+            Gets the horizontal angle.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.HorizontalAngleUnits">
+            <summary>
+            Gets the units of the <see cref="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.HorizontalAngle"/> value.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.VerticalAngle">
+            <summary>
+            Gets the vertical angle.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.VerticalAngleUnits">
+            <summary>
+            Gets the units of the <see cref="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.VerticalAngle"/> value.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.SlopeDistance">
+            <summary>
+            Gets the slope distance.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.SlopeDistanceUnits">
+            <summary>
+            Gets the units of the <see cref="P:NmeaParser.Nmea.LaserRange.LaserRangeMessage.SlopeDistance"/> value.
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.LaserRange.LaserTech.Pltit">
+            <summary>
+            Laser Range 
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.LaserRange.Trimble.Ptnla">
+            <summary>
+            Burden finder
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb">
+            <summary>
+            Tree Measurement
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.TreeHeight">
+            <summary>
+            Gets the height of the tree.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.MeasuredTreeHeight">
+            <summary>
+            Gets the message height of the tree.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.MeasuredTreeHeightUnits">
+            <summary>
+            Gets the units of the <see cref="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.MeasuredTreeHeight"/> value.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.TreeDiameter">
+            <summary>
+            Gets the tree diameter.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.MeasuredTreeDiameter">
+            <summary>
+            Gets the measured tree diameter.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.MeasuredTreeDiameterUnits">
+            <summary>
+            Gets the units of the <see cref="P:NmeaParser.Nmea.LaserRange.Trimble.Ptnlb.MeasuredTreeDiameter"/> value.
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.NmeaMessageTypeAttribute">
+            <summary>
+            Nmea message attribute type used on concrete <see cref="T:NmeaParser.Nmea.NmeaMessage"/> implementations.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.NmeaMessageTypeAttribute.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.Nmea.NmeaMessageTypeAttribute"/> class.
+            </summary>
+            <param name="nmeaType">The type.</param>
+        </member>
+        <member name="P:NmeaParser.Nmea.NmeaMessageTypeAttribute.NmeaType">
+            <summary>
+            Gets or sets the NMEA message type.
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.NmeaMessage">
+            <summary>
+            NMEA Message base class.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.NmeaMessage.Parse(System.String)">
+            <summary>
+            Parses the specified NMEA message.
+            </summary>
+            <param name="message">The NMEA message string.</param>
+            <returns></returns>
+            <exception cref="T:System.ArgumentException">
+            Invalid nmea message: Missing starting character '$'
+            or checksum failure
+            </exception>
+        </member>
+        <member name="P:NmeaParser.Nmea.NmeaMessage.MessageParts">
+            <summary>
+            Gets the NMEA message parts.
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.NmeaMessage.MessageType">
+            <summary>
+            Gets the NMEA type id for the message.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.NmeaMessage.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+            <remarks>
+            Implement this method to create a custom NMEA message.
+            </remarks>
+        </member>
+        <member name="M:NmeaParser.Nmea.NmeaMessage.ToString">
+            <summary>
+            Returns a <see cref="T:System.String" /> that represents this instance.
+            </summary>
+            <returns>
+            A <see cref="T:System.String" /> that represents this instance.
+            </returns>
+        </member>
+        <member name="P:NmeaParser.Nmea.NmeaMessage.Checksum">
+            <summary>
+            Gets the checksum value of the message.
+            </summary>
+        </member>
+        <member name="T:NmeaParser.Nmea.UnknownMessage">
+            <summary>
+            Represents an unknown message type
+            </summary>
+        </member>
+        <member name="P:NmeaParser.Nmea.UnknownMessage.Values">
+            <summary>
+            Gets the nmea value array.
+            </summary>
+        </member>
+        <member name="M:NmeaParser.Nmea.UnknownMessage.OnLoadMessage(System.String[])">
+            <summary>
+            Called when the message is being loaded.
+            </summary>
+            <param name="message">The NMEA message values.</param>
+        </member>
+        <member name="T:NmeaParser.StreamDevice">
+            <summary>
+            Generic stream device
+            </summary>
+        </member>
+        <member name="M:NmeaParser.StreamDevice.#ctor(System.IO.Stream)">
+            <summary>
+            Initializes a new instance of the <see cref="T:NmeaParser.StreamDevice"/> class.
+            </summary>
+            <param name="stream">The stream.</param>
+        </member>
+        <member name="M:NmeaParser.StreamDevice.OpenStreamAsync">
+            <summary>
+            Opens the stream asynchronous.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.StreamDevice.CloseStreamAsync(System.IO.Stream)">
+            <summary>
+            Closes the stream asynchronous.
+            </summary>
+            <param name="stream">The stream.</param>
+            <returns></returns>
+        </member>
+        <member name="M:NmeaParser.StreamDevice.Dispose(System.Boolean)">
+            <summary>
+            Releases unmanaged and - optionally - managed resources.
+            </summary>
+            <param name="disposing"><c>true</c> to release both managed and unmanaged resources; <c>false</c> to release only unmanaged resources.</param>
+        </member>
+    </members>
+</doc>

@@ -71,6 +71,11 @@ namespace Generator.Generators
                 default:
                     return; //Not supported
             }
+            //When loading assemblies the kind isn't recognized
+            if(kind == "class" && type.BaseType.GetFullTypeName() =="System.Enum")
+            {
+                kind = "enum";
+            }
 
             var nsname = type.GetFullNamespace();
             if (nsname != currentNamespace)
@@ -146,7 +151,7 @@ namespace Generator.Generators
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
-                if (type.GetFields(oldType).Any())
+                if (kind != "enum" && type.GetFields(oldType).Any())
                 {
                     isEmpty = false;
                     memberBuilder.AppendLine($"<div class='members'><h4>Fields</h4><ul>");
@@ -159,18 +164,30 @@ namespace Generator.Generators
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
-                if (type.TypeKind == TypeKind.Enum)
+                if (kind == "enum")
                 {
                     isEmpty = false;
                     memberBuilder.AppendLine("<ul class='members'>");
-                    foreach (var e in type.GetEnums(oldType))
+                    if (type.TypeKind == TypeKind.Enum)
                     {
-                        string str = Briefify(e.symbol);
-                        if(e.symbol.HasConstantValue)
-                            str += " = " + e.symbol.ConstantValue?.ToString();
-                        if (e.wasRemoved)
-                            str = $"<span class='memberRemoved'>{str}</span>";
-                        memberBuilder.AppendLine($"{GetIcon(e.symbol, str)}");
+                        foreach (var e in type.GetEnums(oldType).Where(f => f.symbol.HasConstantValue).OrderBy(f => f.symbol.ConstantValue))
+                        {
+                            string str = Briefify(e.symbol)+ " = " + e.symbol.ConstantValue?.ToString();
+                            if (e.wasRemoved)
+                                str = $"<span class='memberRemoved'>{str}</span>";
+                            memberBuilder.AppendLine($"{GetIcon(e.symbol, str)}");
+                        }
+                    }
+                    else if(type.TypeKind == TypeKind.Class)
+                    {
+                        foreach (var e in type.GetFields(oldType).Where(f=>f.symbol.HasConstantValue).OrderBy(f=>f.symbol.ConstantValue))
+                        {
+                            if (!e.symbol.HasConstantValue) continue;
+                            var str = Briefify(e.symbol) + " = " + e.symbol.ConstantValue?.ToString();
+                            if (e.wasRemoved)
+                                str = $"<span class='memberRemoved'>{str}</span>";
+                            memberBuilder.AppendLine($"{GetIcon(e.symbol, str)}");
+                        }
                     }
                     memberBuilder.AppendLine("</ul>");
                 }
@@ -191,16 +208,49 @@ namespace Generator.Generators
             if (!string.IsNullOrEmpty(brief))
                 sw.Write($"title=\"{System.Web.HttpUtility.HtmlEncode(brief)}\"");
             sw.Write($">{System.Web.HttpUtility.HtmlEncode(type.Name)}");
-            if (type.BaseType != null && type.BaseType.Name != "Object" && type.TypeKind != TypeKind.Enum)
+            if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && kind != "enum")
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
                 {
                     sw.Write(" : ");
-                    if (oldType != null)
+                    if (oldType != null && oldType.BaseType.Name != "Object")
                     {
                         sw.Write($"<span class='memberRemoved'>{FormatType(oldType.BaseType)}</span>");
                     }
-                    sw.Write(FormatType(type.BaseType));
+                    if (type.BaseType.Name != "Object")
+                        sw.Write(FormatType(type.BaseType));
+                }
+            }
+            else if(kind == "enum")
+            {
+                if(type.TypeKind == TypeKind.Enum)
+                {
+                    INamedTypeSymbol enumType = type.EnumUnderlyingType;
+                    INamedTypeSymbol oldEnumType = oldType?.EnumUnderlyingType;
+                    if (oldEnumType == null || enumType.ToDisplayString() != oldEnumType.ToDisplayString())
+                    {
+                        sw.Write(" : ");
+                        if (oldEnumType != null)
+                        {
+                            sw.Write($"<span class='memberRemoved'>{FormatType(oldEnumType)}</span>");
+                        }
+                        sw.Write(FormatType(enumType));
+                    }
+                }
+                else if (type.TypeKind == TypeKind.Class) //Happens when analyzing assemblies
+                {
+                    var fields = type.GetFields();
+                    var name = fields.FirstOrDefault()?.ConstantValue?.GetType().FullName;
+                    var oldname = oldType?.GetFields().FirstOrDefault()?.ConstantValue?.GetType().FullName;
+                    if (oldname == null || name != oldname)
+                    {
+                        sw.Write(" : ");
+                        if (oldname != null)
+                        {
+                            sw.Write($"<span class='memberRemoved'>oldname</span>");
+                        }
+                        sw.Write(name);
+                    }
                 }
             }
             sw.WriteLine("</span>");
@@ -255,7 +305,7 @@ namespace Generator.Generators
                 icon += "field";
             else if (type.Kind == SymbolKind.Event)
                 icon += "event";
-            if(type.IsStatic && type.ContainingType?.TypeKind != TypeKind.Enum)
+            if(type.IsStatic && (type.ContainingType?.TypeKind != TypeKind.Enum && !(type.ContainingType?.TypeKind == TypeKind.Class && type.ContainingType?.BaseType?.GetFullTypeName() == "System.Enum")))
             {
                 content = "<span class='static'></span>" + content;
             }

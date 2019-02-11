@@ -24,25 +24,26 @@ namespace Generator
         {
             Console.WriteLine("*********************** Object Model Generator ***********************");
 
-            ICodeGenerator generator = null;
             var arg = ArgumentParser.Parse(args);
-
+            List<ICodeGenerator> generators = new List<ICodeGenerator>();
             if (arg.ContainsKey("format"))
             {
-                if (arg["format"] == "md")
-                    generator = new Generators.MarkdownGenerator();
-                else if (arg["format"] == "html")
-                    generator = new Generators.HtmlOmdGenerator();
-                else
-                {
-                    Console.WriteLine("Invalid format parameter.");
-                    WriteUsage();
-                    return;
-                }
+                var formats = arg["format"].Split(';', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var format in formats)
+                    if (format == "md")
+                        generators.Add(new Generators.MarkdownGenerator());
+                    else if (format == "html")
+                        generators.Add(new Generators.HtmlOmdGenerator());
+                    else
+                    {
+                        Console.WriteLine("Invalid format parameter.");
+                        WriteUsage();
+                        return;
+                    }
             }
-            else
+            if(!generators.Any())
             {
-                generator = new Generators.HtmlOmdGenerator();
+                generators.Add(new Generators.HtmlOmdGenerator());
             }
             if (!arg.ContainsKey("source") && !arg.ContainsKey("assemblies"))
             {
@@ -62,7 +63,7 @@ namespace Generator
             string[] preprocessors = arg.ContainsKey("preprocessors") ? arg["preprocessors"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] assemblies = arg.ContainsKey("assemblies") ? arg["assemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : new string[] { };
             string[] compareAssemblies = arg.ContainsKey("compareAssemblies") ? arg["compareAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
-            var g = new Generator(generator);
+            var g = new Generator(generators);
 
             //Set up output filename
             if (string.IsNullOrEmpty(GeneratorSettings.OutputLocation))

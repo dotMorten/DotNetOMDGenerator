@@ -30,7 +30,8 @@ namespace Generator.Generators
             if (currentNamespace != null)
             {
                 //close the last namespace section
-                WriteLine("}</pre>", 0);
+                WriteLine("}", 0);
+                WriteLine("</pre>", 0);
                 WriteLine("Generated with (.NET Object Model Diagram Generator)[https://github.com/dotMorten/DotNetOMDGenerator]", 0);
                 sw.Flush();
             }
@@ -77,14 +78,19 @@ namespace Generator.Generators
             {
                 case TypeKind.Struct:
                 case TypeKind.Class:
-                    kind = "class";
-                    if (type.IsSealed && (oldType == null || oldType.IsSealed)) kind = "sealed " + kind;
-                    else if (type.IsSealed && !oldType.IsSealed) kind = $"{AddedStart}sealed{AddedEnd} {kind}";
-                    else if (!type.IsSealed && oldType != null && oldType.IsSealed) kind = $"{RemoveStart}sealed{RemoveEnd} {kind}";
+                    if (type.BaseType.GetFullTypeName() == "System.Enum")
+                        kind = "enum"; //When loading assemblies the enum kind isn't recognized
+                    else
+                    {
+                        kind = "class";
+                        if (type.IsSealed && (oldType == null || oldType.IsSealed)) kind = "sealed " + kind;
+                        else if (type.IsSealed && !oldType.IsSealed) kind = $"{AddedStart}sealed{AddedEnd} {kind}";
+                        else if (!type.IsSealed && oldType != null && oldType.IsSealed) kind = $"{RemoveStart}sealed{RemoveEnd} {kind}";
 
-                    if (type.IsStatic && (oldType == null || oldType.IsStatic)) kind = "static " + kind;
-                    else if (type.IsStatic && !oldType.IsStatic) kind = $"{AddedStart}static{AddedEnd} {kind}";
-                    else if (!type.IsStatic && oldType != null && oldType.IsStatic) kind = $"{RemoveStart}static{RemoveEnd} {kind}";
+                        if (type.IsStatic && (oldType == null || oldType.IsStatic)) kind = "static " + kind;
+                        else if (type.IsStatic && !oldType.IsStatic) kind = $"{AddedStart}static{AddedEnd} {kind}";
+                        else if (!type.IsStatic && oldType != null && oldType.IsStatic) kind = $"{RemoveStart}static{RemoveEnd} {kind}";
+                    }
                     break;
                 case TypeKind.Delegate: kind = "delegate"; break;
                 case TypeKind.Enum: kind = "enum"; break;
@@ -110,19 +116,60 @@ namespace Generator.Generators
             var symbols = Generator.GetChangedSymbols(
                 type == oldType ? Enumerable.Empty<INamedTypeSymbol>() : type.GetAllNestedTypes(),
                 oldType == null ? Enumerable.Empty<INamedTypeSymbol>() : oldType.GetAllNestedTypes());
-            if (type.BaseType != null && type.BaseType.Name != "Object" && type.TypeKind != TypeKind.Enum)
+            if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && kind != "enum")
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
                 {
-                    className += (" : ");
-                    if (oldType != null && !isTypeRemoved)
+                    className += " : ";
+                    if (oldType != null && oldType.BaseType.Name != "Object" && !isTypeRemoved)
                     {
                         className += $"{RemoveStart}{FormatType(oldType.BaseType)}{RemoveEnd}"; //removed baseclass
                     }
-                    else if(oldType == null && isComparison && !isTypeNew)
-                        className += $"{AddedStart}{FormatType(type.BaseType)}{AddedEnd}"; //new baseclass
-                    else
-                        className += FormatType(type.BaseType);
+                    if (type.BaseType.Name != "Object")
+                    {
+                        if (isComparison && !isTypeNew)
+                            className += $"{AddedStart}{FormatType(type.BaseType)}{AddedEnd}"; //new baseclass
+                        else
+                            className += $"{FormatType(type.BaseType)}";
+                    }
+                }
+            }
+            else if (kind == "enum")
+            {
+                if (type.TypeKind == TypeKind.Enum)
+                {
+                    INamedTypeSymbol enumType = type.EnumUnderlyingType;
+                    INamedTypeSymbol oldEnumType = oldType?.EnumUnderlyingType;
+                    if (oldEnumType == null || enumType.ToDisplayString() != oldEnumType.ToDisplayString())
+                    {
+                        className += " : ";
+                        if (oldEnumType != null && !isTypeRemoved)
+                        {
+                            className += $"{RemoveStart}{FormatType(oldEnumType)}{RemoveEnd}{AddedStart}{FormatType(enumType)}{AddedEnd}"; //removed baseclass
+                        }
+                        else if (oldEnumType == null && isComparison && !isTypeNew)
+                            className += $"{AddedStart}{FormatType(enumType)}{AddedEnd}"; //new baseclass
+                        else
+                            className += FormatType(enumType);
+                    }
+                }
+                else if (type.TypeKind == TypeKind.Class) //Happens when analyzing assemblies
+                {
+                    var fields = type.GetFields();
+                    var enumType = fields.FirstOrDefault()?.ConstantValue?.GetType().FullName;
+                    var oldEnumType = oldType?.GetFields().FirstOrDefault()?.ConstantValue?.GetType().FullName;
+                    if (oldEnumType == null || enumType != oldEnumType)
+                    {
+                        className += " : ";
+                        if (oldEnumType != null && !isTypeRemoved)
+                        {
+                            className += $"{RemoveStart}{oldEnumType}{RemoveEnd}"; //removed baseclass
+                        }
+                        else if (oldEnumType == null && isComparison && !isTypeNew)
+                            className += $"{AddedStart}{enumType}{AddedEnd}"; //new baseclass
+                        else
+                            className += enumType;
+                    }
                 }
             }
 
@@ -203,7 +250,7 @@ namespace Generator.Generators
                     WriteLine(str, indent + 2);
                 }
             }
-            if (type.GetFields(oldType).Any())
+            if (kind != "enum" && type.GetFields(oldType).Any())
             {
                 foreach (var method in type.GetFields(oldType))
                 {
@@ -216,18 +263,33 @@ namespace Generator.Generators
                 }
             }
 
-            if (type.TypeKind == TypeKind.Enum)
+            if (kind == "enum")
             {
-                foreach (var e in type.GetEnums(oldType))
+                if (type.TypeKind == TypeKind.Enum)
                 {
-                    string str = Briefify(e.symbol);
-                    if (e.symbol.HasConstantValue)
-                        str += " = " + e.symbol.ConstantValue?.ToString();
-                    if (e.wasRemoved)
-                        str = $"{RemoveStart}{str}{RemoveEnd}";
-                    else if (isComparison && !isTypeNew)
-                        str = $"{AddedStart}{str}{AddedEnd}";
-                    WriteLine(str, indent + 2);
+                    foreach (var e in type.GetEnums(oldType).Where(f => f.symbol.HasConstantValue).OrderBy(f => f.symbol.ConstantValue))
+                    {
+                        string str = Briefify(e.symbol) + " = " + e.symbol.ConstantValue?.ToString();
+                        if (e.wasRemoved)
+                            str = $"{RemoveStart}{str}{RemoveEnd}";
+                        else if (isComparison && !isTypeNew)
+                            str = $"{AddedStart}{str}{AddedEnd}";
+                        WriteLine(str + ",", indent + 2);
+                    }
+                }
+                else if (type.TypeKind == TypeKind.Class)
+                {
+                    foreach (var e in type.GetFields(oldType).Where(f => f.symbol.HasConstantValue).OrderBy(f => f.symbol.ConstantValue))
+                    {
+                        if (!e.symbol.HasConstantValue)
+                            continue;
+                        string str = Briefify(e.symbol) + " = " + e.symbol.ConstantValue?.ToString();
+                        if (e.wasRemoved)
+                            str = $"{RemoveStart}{str}{RemoveEnd}";
+                        else if (isComparison && !isTypeNew)
+                            str = $"{AddedStart}{str}{AddedEnd}";
+                        WriteLine(str + ",", indent + 2);
+                    }
                 }
 
             }

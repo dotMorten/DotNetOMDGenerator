@@ -114,7 +114,8 @@ namespace Generator
                         if (item.p.IsOverride)
                             continue; //If override has been removed, just ignore, as it's not a removed method in that sense
                         var basetype = type.BaseType;
-                        while (basetype != null)
+                        bool matchFound = false;
+                        while (basetype != null && !matchFound)
                         {
                             var members = basetype.GetMembers(item.p.Name);
                             if (members.Any())
@@ -122,11 +123,14 @@ namespace Generator
                                 var identifier = item.p.ToDisplayString(Generator.Constants.AllFormatWithoutContaining);
                                 if (members.OfType<IMethodSymbol>().Any(m=>identifier == m.ToDisplayString(Generator.Constants.AllFormatWithoutContaining)))
                                 {
+                                    matchFound = true;
                                     continue;
                                 }
                             }
                             basetype = basetype.BaseType;
                         }
+                        if (matchFound)
+                            continue;
                     }
                     yield return item;
                 }

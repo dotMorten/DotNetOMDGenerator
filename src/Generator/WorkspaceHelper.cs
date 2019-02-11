@@ -12,11 +12,11 @@ namespace Generator
 {
     internal class Generator
     {
-        private ICodeGenerator generator;
+        private IEnumerable<ICodeGenerator> generators;
 
-        public Generator(ICodeGenerator generator)
+        public Generator(IEnumerable<ICodeGenerator> generators)
         {
-            this.generator = generator;
+            this.generators = generators;
         }
 
         internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null)
@@ -25,12 +25,15 @@ namespace Generator
             Console.WriteLine("Processing types...");
             var symbols = GetSymbols(compilation.compilation, compilation.metadata);
 
-            generator.Initialize(symbols);
-            foreach (var s in symbols)
+            foreach (var generator in generators)
             {
-                GenerateCode(s);
+                generator.Initialize(symbols);
+                foreach (var s in symbols)
+                {
+                    GenerateCode(generator, s);
+                }
+                generator.Complete();
             }
-            generator.Complete();
             Console.WriteLine("Complete");
         }
 
@@ -82,7 +85,7 @@ namespace Generator
             }
         }
 
-        private void GenerateCode(INamedTypeSymbol type)
+        private void GenerateCode(ICodeGenerator generator, INamedTypeSymbol type)
         {
             Console.WriteLine(type.GetFullTypeName());
             if (type.TypeKind == TypeKind.Enum)
@@ -305,16 +308,18 @@ namespace Generator
             var oldSymbols = GetSymbols(oldCompilation.compilation, oldCompilation.metadata);
             var newSymbols = GetSymbols(newCompilation.compilation, newCompilation.metadata);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);
-            var generator = this.generator as ICodeDiffGenerator;
-            generator.Initialize(newSymbols, oldSymbols);
             int i = 0;
-            foreach (var s in symbols)
+            foreach (var generator in generators.OfType<ICodeDiffGenerator>())
             {
-                GenerateCode(generator, s.newSymbol, s.oldSymbol);
-                i++;
+                generator.Initialize(newSymbols, oldSymbols);
+                i = 0;
+                foreach (var s in symbols)
+                {
+                    GenerateCode(generator, s.newSymbol, s.oldSymbol);
+                    i++;
+                }
+                generator.Complete();
             }
-            generator.Complete();
-
             Console.WriteLine($"Complete. {i} symbols with changes found");
         }
 
@@ -372,9 +377,14 @@ namespace Generator
                 if (x.BaseType?.ToDisplayString() != y.BaseType?.ToDisplayString())
                     return false; // Inheritance changed
 
+                if (x.TypeKind != y.TypeKind) return false;
+
                 var ifacesNew = x.GetInterfaces();
                 var ifacesOld = y.GetInterfaces();
                 if (ifacesNew.Count() != ifacesOld.Count()) return false;
+
+                if (x.TypeKind == TypeKind.Enum && x.EnumUnderlyingType?.ToDisplayString() != y.EnumUnderlyingType?.ToDisplayString())
+                    return false; //Enum type changed
 
                 // Compare member count
                 var constructorsNew = x.GetConstructors();
