@@ -1,9 +1,23 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <LangVersion>latest</LangVersion>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>generateomd</ToolCommandName>
+    <PackageOutputPath>./../nupkg</PackageOutputPath>
+    <PackageId>dotMorten.OmdGenerator</PackageId>
+    <Version>0.5.0</Version>
+    <Authors>Morten Nielsen</Authors>
+    <Product>OMD Generator</Product>
+    <Description>Automatically generates an HTML Document with an object model diagram for your C# library&lt;</Description>
+    <Copyright>Copyright © 2018 Morten Nielsen</Copyright>
+    <PackageProjectUrl>https://github.com/dotMorten/DotNetOMDGenerator</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dotMorten/DotNetOMDGenerator</RepositoryUrl>
+    <PackageTags>OMD Diagram CSharp Roslyn</PackageTags>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <AssemblyName>generateomd</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,8 +25,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="dotMorten.OmdGenerator.targets" />
     <None Remove="Generators\HtmlOmdFooter.html" />
     <None Remove="Generators\HtmlOmdHeader.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="dotMorten.OmdGenerator.targets" Pack="true" PackagePath="build" />
   </ItemGroup>
 
   <ItemGroup>

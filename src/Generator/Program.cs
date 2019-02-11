@@ -50,8 +50,8 @@ namespace Generator
                 return;
             }
 
-            GeneratorSettings.ShowPrivateMembers = arg.ContainsKey("ShowPrivate");
-            GeneratorSettings.ShowInternalMembers = arg.ContainsKey("ShowInternal");
+            GeneratorSettings.ShowPrivateMembers = arg.ContainsKey("showPrivate");
+            GeneratorSettings.ShowInternalMembers = arg.ContainsKey("showInternal");
             GeneratorSettings.OutputLocation = arg.ContainsKey("output") ? arg["output"] : "./";
             List<Regex> filters = arg.ContainsKey("exclude") ? arg["exclude"].Split(';', StringSplitOptions.RemoveEmptyEntries).Select(f=>CreateFilter(f)).ToList() : new List<Regex>();
             if(arg.ContainsKey("regexfilter"))
@@ -76,20 +76,13 @@ namespace Generator
             return new Regex("^" + Regex.Escape(pattern).
              Replace("\\*", ".*").
              Replace("\\?", ".") + "$", caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase);
-
-            pattern = pattern.Replace(".", @"\.");
-            pattern = pattern.Replace("?", ".");
-            pattern = pattern.Replace("*", ".*?");
-            pattern = pattern.Replace(@"\", @"\\");
-            pattern = pattern.Replace(" ", @"\s");
-            return new Regex(pattern, caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase);
         }
 
 
         private static void WriteUsage()
         {
             Console.WriteLine("\nUsage:");
-            Console.WriteLine(" dotnet GENERATOR.dll /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /output=[out location] /filter=[regex] /ShowPrivate /ShowInternal");
+            Console.WriteLine(" dotnet generateomd.dll /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /output=[out location] /filter=[regex] /ShowPrivate /ShowInternal");
             Console.WriteLine("\nRequired parameters (one or more):");
             Console.WriteLine("  source               Specifies the folder of source files to include for the object model.\n                       Separate with ; for multiple folders");
             Console.WriteLine("  assemblies           Specifies a set of assemblies to include for the object model.\n                       Separate with ; for multiple assemblies");
@@ -101,8 +94,8 @@ namespace Generator
             Console.WriteLine("  preprocessors        Define a set of preprocessors values. Use ; to separate multiple");
             Console.WriteLine("  exclude              Defines one or more strings that can't be part of the path Ie '/Samples/;/UnitTests/'\n                       (use forward slash for folder separators)");
             Console.WriteLine("  regexfilter          Defines a regular expression for filtering on full file names in the source");
-            Console.WriteLine("  ShowPrivate          Show private members (default is false)");
-            Console.WriteLine("  ShowInternal         Show internal members (default is false)");
+            Console.WriteLine("  showPrivate          Show private members (default is false)");
+            Console.WriteLine("  showInternal         Show internal members (default is false)");
         }
     }
 }

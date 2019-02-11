@@ -1,0 +1,10 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"> 
+
+  <Target Name="GenerateObjectModel" AfterTargets="Compile">
+    <PropertyGroup>
+      <OMDOutputFormat Condition="'$(OMDOutputFormat)'==''">html</OMDOutputFormat>
+    </PropertyGroup>
+    <Exec Command="dotnet &quot;$(MSBuildThisFileDirectory)..\tools\netcoreapp2.1\any\Generator.dll&quot; /source=&quot;@(Compile)&quot; /preprocessors=&quot;$(DefineConstants)&quot; /output=&quot;$(OutputPath)$(TargetName).html&quot; /format=$(OMDOutputFormat) /preprocessors=$(DefineConstants)" WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
+</Project> 
