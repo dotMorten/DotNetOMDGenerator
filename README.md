@@ -49,8 +49,8 @@ Install-Package dotMorten.OmdGenerator
 
 Add the following to your project:
 ```xml
-  <Target Name="GenerateObjectModel">
-    <Exec Command="dotnet &quot;$(DotNetOMDGeneratorToolPath)&quot; /source=&quot;@(Compile)&quot; /preprocessors=&quot;$(DefineConstants)&quot; /output=&quot;$(OutputPath)$(TargetName).html&quot;" WorkingDirectory="$(ProjectDir)" />
+  <Target Name="GenerateObjectModel" AfterTargets="Compile">
+    <Exec Command="dotnet &quot;$(DotNetOMDGeneratorToolPath)&quot; /source=&quot;@(Compile)&quot; /preprocessors=&quot;$(DefineConstants)&quot; /output=&quot;$(OutputPath)$(TargetName)&quot;" WorkingDirectory="$(ProjectDir)" />
   </Target>
  
 ```
