@@ -267,9 +267,11 @@ namespace Generator.Generators
             {
                 if (type.TypeKind == TypeKind.Enum)
                 {
-                    foreach (var e in type.GetEnums(oldType).Where(f => f.symbol.HasConstantValue).OrderBy(f => f.symbol.ConstantValue))
+                    foreach (var e in type.GetEnums(oldType).OrderBy(f => f.symbol.ConstantValue))
                     {
-                        string str = Briefify(e.symbol) + " = " + e.symbol.ConstantValue?.ToString();
+                        string str = Briefify(e.symbol);
+                        if (e.symbol.HasConstantValue)
+                            str += " = " + e.symbol.ConstantValue?.ToString();
                         if (e.wasRemoved)
                             str = $"{RemoveStart}{str}{RemoveEnd}";
                         else if (isComparison && !isTypeNew)
@@ -420,7 +422,7 @@ namespace Generator.Generators
                     name += "set; ";
                 }
 
-                name = FormatType(p.Type) + " " + name + " }";
+                name = FormatType(p.Type) + " " + name + "}";
             }
             else if (member is IMethodSymbol m)
             {

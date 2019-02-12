@@ -170,9 +170,11 @@ namespace Generator.Generators
                     memberBuilder.AppendLine("<ul class='members'>");
                     if (type.TypeKind == TypeKind.Enum)
                     {
-                        foreach (var e in type.GetEnums(oldType).Where(f => f.symbol.HasConstantValue).OrderBy(f => f.symbol.ConstantValue))
+                        foreach (var e in type.GetEnums(oldType).OrderBy(f => f.symbol.ConstantValue))
                         {
-                            string str = Briefify(e.symbol)+ " = " + e.symbol.ConstantValue?.ToString();
+                            string str = Briefify(e.symbol);
+                            if (e.symbol.HasConstantValue)
+                                str += " = " + e.symbol.ConstantValue?.ToString();
                             if (e.wasRemoved)
                                 str = $"<span class='memberRemoved'>{str}</span>";
                             memberBuilder.AppendLine($"{GetIcon(e.symbol, str)}");
