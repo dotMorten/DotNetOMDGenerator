@@ -28,13 +28,15 @@ Optional parameters:
                     Separate with; for multiple assemblies, or use wildcards
   format            Format to generate: 
                        'html' a single html output (html is default)
-                       'md' for markdown you can copy-paste to for instance GitHub
+                       'md' for markdown you can copy-paste to for instance GitHub.
+		       Specify multiple with a semicolon seperator, and use an output filename without extension
   preprocessors     Define a set of preprocessors values. Use ; to separate multiple
   exclude           Defines one or more strings that can't be part of the path Ie '*/Samples/*;*/UnitTests/*'
                     (use forward slash for folder separators)
   regexfilter       Defines a regular expression for filtering on full file names in the source
   showPrivate       Show private members (default is false)
   showInternal      Show internal members (default is false)
+  output            Filename to write the output to (extension is optional, but exclude the extension if you specify multiple formats)
 ```
 
 
