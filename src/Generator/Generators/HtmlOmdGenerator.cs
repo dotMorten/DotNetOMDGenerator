@@ -209,7 +209,7 @@ namespace Generator.Generators
             if (type.GetInterfaces(oldType).Any())
             {
                 isEmpty = false;
-                sw.Write("<br/>Implements ");
+                sw.Write("<br/>Implements <span class='code'>");
                 int i = 0;
                 foreach(var iface in type.GetInterfaces(oldType))
                 {
@@ -220,6 +220,7 @@ namespace Generator.Generators
                     if (iface.wasRemoved) sw.Write("</span>");
                     i++;
                 }
+                sw.Write("</span>"); // MA - End <span class="code>.../span>
             }
             sw.WriteLine("</div>"); //End header box
 
@@ -261,7 +262,7 @@ namespace Generator.Generators
             }
             if (icon == "")
                 return content;
-            return $"<li class='{icon}'>{content}</li>";
+            return $"<li class='{icon} code'>{content}</li>";
         }
 
         public void WriteEnum(INamedTypeSymbol enm) => WriteEnum(enm, null);

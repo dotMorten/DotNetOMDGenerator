@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -10,7 +10,8 @@
          .objectBox { border-style:solid; border-width:1px; margin:10px; float:left; border-radius:10px;}
          .objectBox > .header { font-size:10px; padding:10px; border-radius:10px 10px 0 0;}
          .objectBox > .header.noMembers { border-radius: 10px; }
-         .objectBox > .header > span { font-size:20px; }
+         .objectBox > .header > span:not(.code) { font-size:20px; }
+         .code { font-family: monospace }
 		 .class {  background: linear-gradient(to right, rgb(211, 220, 239), white);  }
          .struct { background: linear-gradient(to right, rgb(211, 220, 239), white); }
          .enum { background: linear-gradient(to right, rgb(221, 214, 239), white); }
