@@ -209,7 +209,10 @@ namespace Generator.Generators
             sw.Write($"<span ");
             if (!string.IsNullOrEmpty(brief))
                 sw.Write($"title=\"{System.Web.HttpUtility.HtmlEncode(brief)}\"");
-            sw.Write($">{System.Web.HttpUtility.HtmlEncode(type.Name)}");
+            sw.Write('>');
+            if (!isTypeNew && !isTypeRemoved) sw.Write("<span class='existing'>");
+            sw.Write(System.Web.HttpUtility.HtmlEncode(type.Name));
+            if (!isTypeNew && !isTypeRemoved) sw.Write("</span>");
             if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && kind != "enum")
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
