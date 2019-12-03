@@ -68,7 +68,7 @@ namespace Generator
         {
             IEnumerable<ISymbol> members = type.GetMembers().Where(m => !m.IsOverride);
             if (!GeneratorSettings.ShowPrivateMembers)
-                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private);
+                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
             if (!GeneratorSettings.ShowInternalMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Internal);
             return members;
