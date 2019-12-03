@@ -19,9 +19,9 @@ namespace Generator
             this.generators = generators;
         }
 
-        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null)
         {
-            var compilation = await CreateCompilationAsync(paths, assemblies, preprocessors, filters);
+            var compilation = await CreateCompilationAsync(paths, assemblies, preprocessors, filters, referenceAssemblies);
             Console.WriteLine("Processing types...");
             var symbols = GetSymbols(compilation.compilation, compilation.metadata);
 
@@ -102,7 +102,7 @@ namespace Generator
             }
         }
 
-        internal async Task<(Compilation compilation, List<MetadataReference> metadata)> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null)
+        internal async Task<(Compilation compilation, List<MetadataReference> metadata)> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null)
         {
             Console.WriteLine("Creating workspace...");
 
@@ -182,13 +182,18 @@ namespace Generator
                 }
             }
 
-            //Ensure mscorlib is referenced
-            string mscorlib = typeof(System.Enum).Assembly.Location;
-            if (File.Exists(mscorlib))
+            
+            if (referenceAssemblies != null)
             {
-                project = project.WithParseOptions(new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
-                var metaref = MetadataReference.CreateFromFile(mscorlib);
-                project = project.AddMetadataReference(metaref);
+                foreach (var refasm in referenceAssemblies)
+                {
+                    if (File.Exists(refasm))
+                    {
+                        project = project.WithParseOptions(new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
+                        var metaref = MetadataReference.CreateFromFile(refasm);
+                        project = project.AddMetadataReference(metaref);
+                    }
+                }
             }
 
             var comp = await project.GetCompilationAsync().ConfigureAwait(false);
@@ -302,10 +307,10 @@ namespace Generator
 
         //************* Difference comparisons *******************/
 
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null)
         {
-            var oldCompilation = await CreateCompilationAsync(oldPaths, oldAssemblies, preprocessors, filters);
-            var newCompilation = await CreateCompilationAsync(newPaths, newAssemblies, preprocessors, filters);
+            var oldCompilation = await CreateCompilationAsync(oldPaths, oldAssemblies, preprocessors, filters, referenceAssemblies);
+            var newCompilation = await CreateCompilationAsync(newPaths, newAssemblies, preprocessors, filters, referenceAssemblies);
             var oldSymbols = GetSymbols(oldCompilation.compilation, oldCompilation.metadata);
             var newSymbols = GetSymbols(newCompilation.compilation, newCompilation.metadata);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);
