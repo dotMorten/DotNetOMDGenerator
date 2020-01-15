@@ -2,6 +2,13 @@
 
 A cross-platform Roslyn-based tool that generates an object model diagram of a set of C# source files and/or .NET assemblies
 
+## Sponsoring
+
+If you like this library and use it a lot, consider sponsoring me. Anything helps and encourages me to keep going.
+
+See here for details: https://github.com/sponsors/dotMorten
+
+
 ### Install
 
 Run the following command from commandline (requires .NET Core 2.1 installed):
