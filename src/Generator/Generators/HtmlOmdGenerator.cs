@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -264,7 +264,7 @@ namespace Generator.Generators
             if (type.GetInterfaces(oldType).Any())
             {
                 isEmpty = false;
-                sw.Write("<br/>Implements ");
+                sw.Write("<br/>Implements <span class='code'>");
                 int i = 0;
                 foreach(var iface in type.GetInterfaces(oldType))
                 {
@@ -275,6 +275,7 @@ namespace Generator.Generators
                     if (iface.wasRemoved) sw.Write("</span>");
                     i++;
                 }
+                sw.Write("</span>"); // MA - End <span class="code>.../span>
             }
             sw.WriteLine("</div>"); //End header box
 
@@ -318,7 +319,7 @@ namespace Generator.Generators
             }
             if (icon == "")
                 return content;
-            return $"<li class='{icon}'>{content}</li>";
+            return $"<li class='{icon} code'>{content}</li>";
         }
 
         public void WriteEnum(INamedTypeSymbol enm) => WriteEnum(enm, null);
@@ -352,7 +353,7 @@ namespace Generator.Generators
                     if (p.Kind == SymbolDisplayPartKind.Punctuation || p.Kind == SymbolDisplayPartKind.Space)
                         t += System.Web.HttpUtility.HtmlEncode(p.ToString());
                     else if (p.Symbol is ITypeSymbol its)
-                        t += LinkifyType(its, false);
+                        t += $"<span class='type'>{LinkifyType(its, false)}</span>";
                     else
                     {
 
@@ -361,7 +362,11 @@ namespace Generator.Generators
                 return t;
             }
             else {
-                return LinkifyType(type);
+                if (parts[0].Kind == SymbolDisplayPartKind.Keyword)
+                {
+                    return $"<span class='keyword'>{LinkifyType(type)}</span>";
+                }
+                return $"<span class='type'>{LinkifyType(type)}</span>";
             }
         }
 
@@ -373,27 +378,29 @@ namespace Generator.Generators
             }
             var name = includeGeneric ? type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) : type.Name;
             if (allSymbols.Contains(type))
-                return $"<a href='#{type.GetFullTypeName()}'>{System.Web.HttpUtility.HtmlEncode(name)}</a>";
+                return $"<a class='type' href='#{type.GetFullTypeName()}'>{System.Web.HttpUtility.HtmlEncode(name)}</a>";
             else 
                 return Briefify(type, name);
         }
 
         private static string AccessorToString(Accessibility a)
         {
+            string format = "<span class='keyword'>{0}</span>";
+
             switch(a)
             {
                 case Accessibility.Public:
-                    return "public";
+                    return string.Format(format, "public");
                 case Accessibility.Private:
-                    return "private";
+                    return string.Format(format, "private");
                 case Accessibility.Internal:
-                    return "internal";
+                    return string.Format(format, "internal");
                 case Accessibility.Protected:
-                    return "protected";
+                    return string.Format(format, "protected");
                 case Accessibility.ProtectedOrInternal:
-                    return GeneratorSettings.ShowInternalMembers ? "protected internal" : "protected";
+                    return string.Format(format, GeneratorSettings.ShowInternalMembers ? "protected internal" : "protected");
                 case Accessibility.ProtectedAndInternal:
-                    return "private protected";
+                    return string.Format(format, "private protected");
                 default:
                     return string.Empty;
             }
@@ -420,7 +427,7 @@ namespace Generator.Generators
                     { 
                         name += AccessorToString(p.GetMethod.DeclaredAccessibility) + " ";
                     }
-                    name += "get; ";
+                    name += "<span class='keyword'>get</span>; ";
                 }
                 if (p.SetMethod != null && ((p.SetMethod.DeclaredAccessibility == Accessibility.Public || p.SetMethod.DeclaredAccessibility == Accessibility.Protected || p.SetMethod.DeclaredAccessibility == Accessibility.ProtectedOrInternal) ||
                    (GeneratorSettings.ShowInternalMembers && p.SetMethod.DeclaredAccessibility == Accessibility.Internal || p.SetMethod.DeclaredAccessibility == Accessibility.ProtectedAndInternal) ||
@@ -430,7 +437,7 @@ namespace Generator.Generators
                     {
                         name += AccessorToString(p.SetMethod.DeclaredAccessibility) + " ";
                     }
-                    name += "set; ";
+                    name += "<span class='keyword'>set</span>; ";
                 }
 
                 name += "} : " + FormatType(p.Type);
@@ -439,11 +446,13 @@ namespace Generator.Generators
             {
                 if (m.TypeArguments.Any())
                 {
-                    name += System.Web.HttpUtility.HtmlEncode("<" + string.Join(", ", m.TypeArguments.Select(t => t.ToDisplayString())) + ">");
+                    name += System.Web.HttpUtility.HtmlEncode("<") 
+                        + string.Join(", ", m.TypeArguments.Select(t => $"<span class='type'>{t.ToDisplayString()}</span>")) 
+                        + System.Web.HttpUtility.HtmlEncode(">");
                 }
 
                 name += "(";
-                name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr) + (pr.HasExplicitDefaultValue ? (" = " + (pr.ExplicitDefaultValue?.ToString() ?? "null")) : "")));
+                name += string.Join(", ", m.Parameters.Select(pr => FormatType(pr.Type) + " " + Briefify(pr) + (pr.HasExplicitDefaultValue ? (" = " + (pr.ExplicitDefaultValue?.ToString() ?? "<span class='keyword'>null</span>")) : "")));
                 name += ")";
                 if (!m.ReturnsVoid)
                 {
