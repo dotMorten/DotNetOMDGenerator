@@ -2,13 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <PackAsTool>true</PackAsTool>
+    <PackageTypes>DotnetTool,DotNetCliTool</PackageTypes>
     <ToolCommandName>generateomd</ToolCommandName>
     <PackageOutputPath>./../nupkg</PackageOutputPath>
     <PackageId>dotMorten.OmdGenerator</PackageId>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Authors>Morten Nielsen</Authors>
     <Product>OMD Generator</Product>
     <Description>Automatically generates an HTML Document with an object model diagram for your C# library&lt;</Description>

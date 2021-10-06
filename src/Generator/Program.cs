@@ -95,7 +95,7 @@ namespace Generator
         private static void WriteUsage()
         {
             Console.WriteLine("\nUsage:");
-            Console.WriteLine(" /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /output=[out location] /format=[html,md] /filter=[regex] /showPrivate /showInternal");
+            Console.WriteLine(" --source=[source folder] --compareSource=[oldSourceFolder] --preprocessors=[defines] --output=[out location] --format=[html,md] --filter=[regex] --showPrivate --showInternal");
             Console.WriteLine("\nRequired parameters (one or more):");
             Console.WriteLine("  source               Specifies the folder of source files to include for the object model.\n                       Separate with ; for multiple folders");
             Console.WriteLine("  assemblies           Specifies a set of assemblies to include for the object model.\n                       Separate with ; for multiple assemblies");

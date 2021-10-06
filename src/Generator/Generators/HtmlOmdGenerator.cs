@@ -37,6 +37,12 @@ namespace Generator.Generators
                 sw.WriteLine("</div></section>");
                 sw.Flush();
             }
+            sw.WriteLine("<hr style=\"clear: both; \" />Command line:<br/>");
+            sw.WriteLine("<pre style=\"padding: 5px; background-color:#eee\">");
+            sw.WriteLine("dotnet tool install --global dotMorten.OmdGenerator");
+            sw.WriteLine("generateomd " + Environment.CommandLine);
+            sw.WriteLine("</pre>");
+            sw.Flush();
             using (var s = typeof(HtmlOmdGenerator).Assembly.GetManifestResourceStream("Generator.Generators.HtmlOmdFooter.html"))
             {
                 s.CopyTo(sw.BaseStream);
