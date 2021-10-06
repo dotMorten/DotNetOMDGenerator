@@ -63,6 +63,8 @@ namespace Generator
             string[] preprocessors = arg.ContainsKey("preprocessors") ? arg["preprocessors"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] assemblies = arg.ContainsKey("assemblies") ? arg["assemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : new string[] { };
             string[] compareAssemblies = arg.ContainsKey("compareAssemblies") ? arg["compareAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
+            string[] referenceAssemblies = arg.ContainsKey("referenceAssemblies") ? arg["referenceAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
+            
             var g = new Generator(generators);
 
             //Set up output filename
@@ -75,9 +77,9 @@ namespace Generator
                 GeneratorSettings.OutputLocation = System.IO.Path.Combine(GeneratorSettings.OutputLocation, "OMD");
 
             if (oldSource != null || compareAssemblies != null)
-                await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray());
+                await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray(), referenceAssemblies);
             else
-                await g.Process(source, assemblies, preprocessors, filters.ToArray());
+                await g.Process(source, assemblies, preprocessors, filters.ToArray(), referenceAssemblies);
 
             if(System.Diagnostics.Debugger.IsAttached)
                 Console.ReadKey();
@@ -104,6 +106,7 @@ namespace Generator
             Console.WriteLine("  preprocessors        Define a set of preprocessors values. Use ; to separate multiple");
             Console.WriteLine("  exclude              Defines one or more strings that can't be part of the path Ie '/Samples/;/UnitTests/'\n                       (use forward slash for folder separators)");
             Console.WriteLine("  regexfilter          Defines a regular expression for filtering on full file names in the source");
+            Console.WriteLine("  referenceAssemblies  Specifies a set of assemblies to include for references for better type resolution.");
             Console.WriteLine("  showPrivate          Show private members (default is false)");
             Console.WriteLine("  showInternal         Show internal members (default is false)");
         }

@@ -308,6 +308,8 @@ namespace Generator.Generators
                 icon = "prot";
             else if (type.DeclaredAccessibility == Accessibility.Private)
                 icon = "priv";
+            else if (type.DeclaredAccessibility == Accessibility.ProtectedAndFriend)
+                icon = "privprot";
             if (type.Kind == SymbolKind.Method)
                 icon += "method";
             else if (type.Kind == SymbolKind.Property)
