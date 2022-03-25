@@ -78,7 +78,7 @@ namespace Generator
             if (type == null) return Enumerable.Empty<INamedTypeSymbol>();
             IEnumerable<INamedTypeSymbol> members = type.GetTypeMembers();
             if (!GeneratorSettings.ShowPrivateMembers)
-                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private);
+                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
             if (!GeneratorSettings.ShowInternalMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Internal);
             return members;
@@ -176,7 +176,7 @@ namespace Generator
         {
             IEnumerable<INamedTypeSymbol> i = type.Interfaces;
             if (!GeneratorSettings.ShowPrivateMembers)
-                i = i.Where(m => m.DeclaredAccessibility != Accessibility.Private);
+                i = i.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
             if (!GeneratorSettings.ShowInternalMembers)
                 i = i.Where(m => m.DeclaredAccessibility != Accessibility.Internal && m.DeclaredAccessibility != Accessibility.NotApplicable);
             return i;
@@ -239,7 +239,7 @@ namespace Generator
                 return Enumerable.Empty<IMethodSymbol>();
             IEnumerable<IMethodSymbol> members = type.Constructors; //.Where(c=>c.CanBeReferencedByName);
             if (!GeneratorSettings.ShowPrivateMembers)
-                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private);
+                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
             if (!GeneratorSettings.ShowInternalMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Internal);
             return members.OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name)));
