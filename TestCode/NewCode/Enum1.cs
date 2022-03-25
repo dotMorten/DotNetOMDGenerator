@@ -14,6 +14,12 @@ public namespace RootNamespace
     [Flags]
     public enum FlagsEnum
     {
-        Zero = 0, One = 1, Two = 2, Four = 4, All = 255
+        Zero = 0,
+	One = 1,
+	Two = 2,
+	Four = 4,
+	[Obsolete]
+	Obsolete = 5,
+	All = 255,
     }
 }

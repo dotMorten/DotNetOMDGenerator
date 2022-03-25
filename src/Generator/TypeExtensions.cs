@@ -93,19 +93,20 @@ namespace Generator
                 .OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))).OrderBy(m=>m.Name);
         }
 
-        public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved)> GetMethods(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetMethods(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
             {
-                foreach (var item in GetMethods(type ?? oldType).Select(p => (p, type == null)))
+                foreach (var item in GetMethods(type ?? oldType).Select(p => (p, type == null, p.IsObsolete())))
                     yield return item;
             }
             else
             {
                 var newMembers = GetMethods(type);
                 var oldMembers = GetMethods(oldType);
-                var result = newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false))
-                    .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true)))
+                var result = newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false, false))
+                    .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true, false)))
+                    .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.MethodComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                  .OrderBy(t => string.Join(',', t.Item1.Parameters.Select(p => p.Name))).OrderBy(t => t.Item1.Name);
                 foreach (var item in result)
                 {
@@ -142,14 +143,15 @@ namespace Generator
             return type.GetAllMembers().OfType<IPropertySymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m=>m.Name);
         }
 
-        public static IEnumerable<(IPropertySymbol symbol, bool wasRemoved)> GetProperties(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IPropertySymbol symbol, bool wasRemoved, bool wasObsoleted)> GetProperties(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetProperties(type ?? oldType).Select(p=>(p, type == null));
+                return GetProperties(type ?? oldType).Select(p=>(p, type == null, p.IsObsolete()));
             var newProps = GetProperties(type);
             var oldProps = GetProperties(oldType);
-            return newProps.Except(oldProps, Generator.PropertyComparer.Comparer).Select(p => (p, false))
-                .Union(oldProps.Except(newProps, Generator.PropertyComparer.Comparer).Select(p => (p, true)))
+            return newProps.Except(oldProps, Generator.PropertyComparer.Comparer).Select(p => (p, false, false))
+                .Union(oldProps.Except(newProps, Generator.PropertyComparer.Comparer).Select(p => (p, true, false)))
+                .Union(newProps.Where(n => n.IsObsolete() && oldProps.Any(o => !o.IsObsolete() && Generator.PropertyComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -158,17 +160,18 @@ namespace Generator
             return type.GetAllMembers().OfType<IFieldSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
-        public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved)> GetFields(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetFields(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (type.TypeKind == TypeKind.Enum)
-                return Enumerable.Empty<(IFieldSymbol symbol, bool wasRemoved)> ();
+                return Enumerable.Empty<(IFieldSymbol symbol, bool wasRemoved, bool wasObsoleted)> ();
 
             if (oldType == null || type == null)
-                return GetFields(type ?? oldType).Select(p => (p, type == null));
+                return GetFields(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
             var newProps = GetFields(type);
             var oldProps = GetFields(oldType);
-            return newProps.Except(oldProps, Generator.FieldComparer.Comparer).Select(p => (p, false))
-                .Union(oldProps.Except(newProps, Generator.FieldComparer.Comparer).Select(p => (p, true)))
+            return newProps.Except(oldProps, Generator.FieldComparer.Comparer).Select(p => (p, false, false))
+                .Union(oldProps.Except(newProps, Generator.FieldComparer.Comparer).Select(p => (p, true, false)))
+                .Union(newProps.Where(n => n.IsObsolete() && oldProps.Any(o => !o.IsObsolete() && Generator.FieldComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -182,14 +185,15 @@ namespace Generator
             return i;
         }
 
-        public static IEnumerable<(INamedTypeSymbol symbol, bool wasRemoved)> GetInterfaces(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(INamedTypeSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetInterfaces(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetInterfaces(type ?? oldType).Select(p => (p, type == null));
+                return GetInterfaces(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
             var newMembers = GetInterfaces(type);
             var oldMembers = GetInterfaces(oldType);
-            return newMembers.Except(oldMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, false))
-                .Union(oldMembers.Except(newMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, true)))
+            return newMembers.Except(oldMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, false, false))
+                .Union(oldMembers.Except(newMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, true, false)))
+                .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.SymbolNameComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -217,19 +221,24 @@ namespace Generator
             //     return true;
             return true;
         }
+        public static bool IsObsolete(this ISymbol prop)
+        {
+            return prop.GetAttributes().Any(a => a.AttributeClass.GetFullTypeName() == "System.ObsoleteAttribute" || a.AttributeClass.GetFullTypeName() == "Obsolete");
+        }
         public static IEnumerable<IEventSymbol> GetEvents(this INamedTypeSymbol type)
         {
             return type.GetAllMembers().OfType<IEventSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
-        public static IEnumerable<(IEventSymbol symbol, bool wasRemoved)> GetEvents(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IEventSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetEvents(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetEvents(type ?? oldType).Select(p => (p, type == null));
+                return GetEvents(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
             var newMembers = GetEvents(type);
             var oldMembers = GetEvents(oldType);
-            return newMembers.Except(oldMembers, Generator.EventComparer.Comparer).Select(p => (p, false))
-                .Union(oldMembers.Except(newMembers, Generator.EventComparer.Comparer).Select(p => (p, true)))
+            return newMembers.Except(oldMembers, Generator.EventComparer.Comparer).Select(p => (p, false, false))
+                .Union(oldMembers.Except(newMembers, Generator.EventComparer.Comparer).Select(p => (p, true, false)))
+                .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.EventComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -245,14 +254,15 @@ namespace Generator
             return members.OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name)));
         }
 
-        public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved)> GetConstructors(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetConstructors(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetConstructors(type ?? oldType).Select(p => (p, type == null));
+                return GetConstructors(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
             var newMembers = GetConstructors(type);
             var oldMembers = GetConstructors(oldType);
-            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false))
-                .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true)))
+            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false, false))
+                .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true, false)))
+                .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.MethodComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -263,14 +273,15 @@ namespace Generator
             return type.GetAllMembers().OfType<IFieldSymbol>().OrderBy(f => f.ConstantValue);
         }
 
-        public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved)> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)
+        public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)
         {
             if (oldType == null || type == null)
-                return GetEnums(type ?? oldType).Select(p => (p, type == null));
+                return GetEnums(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
             var newMembers = GetEnums(type);
             var oldMembers = GetEnums(oldType);
-            return newMembers.Except(oldMembers, Generator.FieldComparer.Comparer).Select(p => (p, false))
-                .Union(oldMembers.Except(newMembers, Generator.FieldComparer.Comparer).Select(p => (p, true)))
+            return newMembers.Except(oldMembers, Generator.FieldComparer.Comparer).Select(p => (p, false, false))
+                .Union(oldMembers.Except(newMembers, Generator.FieldComparer.Comparer).Select(p => (p, true, false)))
+                .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.FieldComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
         }
 

@@ -95,7 +95,7 @@ namespace Generator.Generators
                 currentNamespace = nsname;
                 sw.WriteLine($"<h3 class='expander active'>{nsname}</h3><div>");
             }
-            
+            bool wasObsoleted = type.IsObsolete() && oldType?.IsObsolete() != true;
             sw.WriteLine($"<div class='objectBox{(isTypeRemoved ? " typeRemoved" : "")}{(!isTypeNew ? " typeExisting" : "")}' id='{type.GetFullTypeName()}'>");
             bool isEmpty = true;
             var memberBuilder = new StringBuilder();
@@ -114,6 +114,8 @@ namespace Generator.Generators
                         var str = FormatMember(method.symbol);
                         if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
+                        else if(method.wasObsoleted)
+                            str = $"<span class='obsolete'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
@@ -127,6 +129,8 @@ namespace Generator.Generators
                         var str = FormatMember(method.symbol);
                         if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
+                        else if (method.wasObsoleted)
+                            str = $"<span class='obsolete'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
@@ -140,6 +144,8 @@ namespace Generator.Generators
                         var str = FormatMember(method.symbol);
                         if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
+                        else if (method.wasObsoleted)
+                            str = $"<span class='obsolete'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
@@ -153,6 +159,8 @@ namespace Generator.Generators
                         var str = FormatMember(method.symbol);
                         if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
+                        else if (method.wasObsoleted)
+                            str = $"<span class='obsolete'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
@@ -166,6 +174,8 @@ namespace Generator.Generators
                         var str = FormatMember(method.symbol);
                         if (method.wasRemoved)
                             str = $"<span class='memberRemoved'>{str}</span>";
+                        else if (method.wasObsoleted)
+                            str = $"<span class='obsolete'>{str}</span>";
                         memberBuilder.AppendLine($"{GetIcon(method.symbol, str)}");
                     }
                     memberBuilder.AppendLine("</ul></div>");
@@ -183,6 +193,8 @@ namespace Generator.Generators
                                 str += " = " + e.symbol.ConstantValue?.ToString();
                             if (e.wasRemoved)
                                 str = $"<span class='memberRemoved'>{str}</span>";
+                            else if (e.wasObsoleted)
+                                str = $"<span class='obsolete'>{str}</span>";
                             memberBuilder.AppendLine($"{GetIcon(e.symbol, str)}");
                         }
                     }
@@ -194,6 +206,8 @@ namespace Generator.Generators
                             var str = Briefify(e.symbol) + " = " + e.symbol.ConstantValue?.ToString();
                             if (e.wasRemoved)
                                 str = $"<span class='memberRemoved'>{str}</span>";
+                            else if (e.wasObsoleted)
+                                str = $"<span class='obsolete'>{str}</span>";
                             memberBuilder.AppendLine($"{GetIcon(e.symbol, str)}");
                         }
                     }
@@ -208,7 +222,7 @@ namespace Generator.Generators
             {
                 isEmpty = false;
             }
-            sw.WriteLine($"<div class='header {kind}{(isEmpty ? " noMembers" : "")}'>");
+            sw.WriteLine($"<div class='header {kind}{(isEmpty ? " noMembers" : "")}{(wasObsoleted ? " obsolete" : "")}'>");
 
             //Write class name + Inheritance
             var brief = type.GetDescription();
@@ -216,7 +230,7 @@ namespace Generator.Generators
             if (!string.IsNullOrEmpty(brief))
                 sw.Write($"title=\"{System.Web.HttpUtility.HtmlEncode(brief)}\"");
             sw.Write('>');
-            if (!isTypeNew && !isTypeRemoved) sw.Write("<span class='existing'>");
+            if (!isTypeNew && !isTypeRemoved) sw.Write($"<span class='existing'>");
             sw.Write(System.Web.HttpUtility.HtmlEncode(type.Name));
             if (!isTypeNew && !isTypeRemoved) sw.Write("</span>");
             if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && kind != "enum")

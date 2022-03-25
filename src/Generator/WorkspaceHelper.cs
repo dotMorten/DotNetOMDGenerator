@@ -331,11 +331,14 @@ namespace Generator
 
         internal static IEnumerable<(INamedTypeSymbol newSymbol, INamedTypeSymbol oldSymbol)> GetChangedSymbols(IEnumerable<INamedTypeSymbol> newSymbols, IEnumerable<INamedTypeSymbol> oldSymbols)
         {
-            var removedSymbols = oldSymbols.Except(newSymbols, new SymbolNameComparer()).ToList(); //Objects that have been removed
-            var addedSymbols = newSymbols.Except(oldSymbols, new SymbolNameComparer()).ToList(); //Objects that have been added
-            var sameNewSymbols = newSymbols.Intersect(oldSymbols, new SymbolNameComparer()).ToList(); // Objects present before and after
-            var sameOldSymbols = oldSymbols.Intersect(newSymbols, new SymbolNameComparer()).ToList(); // Objects present before and after
-            var changedSymbols = sameNewSymbols.Except(sameOldSymbols, new SymbolMemberComparer()).ToList(); //Objects that have changes
+            var symbolNameComparer = new SymbolNameComparer();
+            var removedSymbols = oldSymbols.Except(newSymbols, symbolNameComparer).ToList(); //Objects that have been removed
+            var addedSymbols = newSymbols.Except(oldSymbols, symbolNameComparer).ToList(); //Objects that have been added
+            var sameNewSymbols = newSymbols.Intersect(oldSymbols, symbolNameComparer).ToList(); // Objects present before and after
+            var sameOldSymbols = oldSymbols.Intersect(newSymbols, symbolNameComparer).ToList(); // Objects present before and after
+            var changedSymbols = sameNewSymbols.Except(sameOldSymbols, new SymbolMemberComparer())
+                .Union(sameNewSymbols.Where(n=>n.IsObsolete() && !sameOldSymbols.Single(o=>symbolNameComparer.Equals(n, o)).IsObsolete()))
+                .ToList(); //Objects that have changes
             List<(INamedTypeSymbol newSymbol, INamedTypeSymbol oldSymbol)> symbols = new List<(INamedTypeSymbol newSymbol, INamedTypeSymbol oldSymbol)>();
             foreach (var s in addedSymbols)
                 symbols.Add((s, null));
