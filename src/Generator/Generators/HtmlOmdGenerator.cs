@@ -135,11 +135,12 @@ namespace Generator.Generators
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
-                if (type.GetMethods(oldType).Any())
+                var methods = type.GetMethods(oldType).ToList();
+                if (methods.Any())
                 {
                     isEmpty = false;
                     memberBuilder.AppendLine($"<div class='members'><h4>Methods</h4><ul>");
-                    foreach (var method in type.GetMethods(oldType))
+                    foreach (var method in methods)
                     {
                         var str = FormatMember(method.symbol);
                         if (method.wasRemoved)

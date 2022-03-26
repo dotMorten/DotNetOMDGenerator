@@ -97,18 +97,19 @@ namespace Generator
         {
             if (oldType == null || type == null)
             {
-                foreach (var item in GetMethods(type ?? oldType).Select(p => (p, type == null, p.IsObsolete())))
-                    yield return item;
+                return GetMethods(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
+                //foreach (var item in GetMethods(type ?? oldType).Select(p => (p, type == null, p.IsObsolete())))
+                //    yield return item;
             }
             else
             {
-                var newMembers = GetMethods(type);
-                var oldMembers = GetMethods(oldType);
+                var newMembers = GetMethods(type).ToList();
+                var oldMembers = GetMethods(oldType).ToList();
                 var result = newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false, false))
                     .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true, false)))
                     .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.MethodComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                  .OrderBy(t => string.Join(',', t.Item1.Parameters.Select(p => p.Name))).OrderBy(t => t.Item1.Name);
-                foreach (var item in result)
+                foreach (var item in result.ToArray())
                 {
                     if (item.Item2 == true)//Item was removed. Check if it was just moved up to a base-class
                     {
@@ -131,10 +132,46 @@ namespace Generator
                             basetype = basetype.BaseType;
                         }
                         if (matchFound)
+                        {
+                            if (newMembers.Contains(item.p))
+                                newMembers.Remove(item.p);
+                            else if (oldMembers.Contains(item.p))
+                                oldMembers.Remove(item.p);
                             continue;
+                        }
+                        //Check if optional was changed to explicit overloads
+                        if (item.p.Parameters.Any(p => p.IsOptional) && newMembers.Any(n=>n.Name == item.p.Name))
+                        {
+                            bool found = true;
+                            var newOverloads = newMembers.Where(n => n.Name == item.p.Name).ToList();
+                            var start = item.p.Parameters.IndexOf(item.p.Parameters.First(item => item.IsOptional));
+                            List<IMethodSymbol> foundNewMembers = new List<IMethodSymbol>();
+                            for (int i = start; i <= item.p.Parameters.Length; i++)
+                            {
+                                var ps = item.p.Parameters.Take(i);
+                                var matches = newOverloads.Where(n => n.Parameters.Length == i);
+                                for (int j = 0; j < i; j++)
+                                {
+                                    matches = matches.Where(m =>  m.Parameters[j].Type.GetFullTypeName() == item.p.Parameters[j].Type.GetFullTypeName()).ToList();
+                                }
+                                if (matches.Count() == 1)
+                                {
+                                    foundNewMembers.Add(matches.Single());
+                                }
+                                else
+                                    found = false;
+                            }
+                            if (found)
+                            {
+                                foreach(var member in foundNewMembers)
+                                    newMembers.Remove(member);
+                                if (oldMembers.Contains(item.p))
+                                    oldMembers.Remove(item.p);
+                            }
+                        }
                     }
-                    yield return item;
                 }
+                return result;
             }
         }
 
@@ -258,12 +295,49 @@ namespace Generator
         {
             if (oldType == null || type == null)
                 return GetConstructors(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
-            var newMembers = GetConstructors(type);
-            var oldMembers = GetConstructors(oldType);
-            return newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false, false))
+            var newMembers = GetConstructors(type).ToList();
+            var oldMembers = GetConstructors(oldType).ToList();
+            var result = newMembers.Except(oldMembers, Generator.MethodComparer.Comparer).Select(p => (p, false, false))
                 .Union(oldMembers.Except(newMembers, Generator.MethodComparer.Comparer).Select(p => (p, true, false)))
                 .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.MethodComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
+            foreach (var item in result.ToArray())
+            {
+                if (item.Item2 == true)//Item was removed. Check if it was just moved up to a base-class
+                {
+                    //Check if optional was changed to explicit overloads
+                    if (item.p.Parameters.Any(p => p.IsOptional) && newMembers.Any(n => n.Name == item.p.Name))
+                    {
+                        bool found = true;
+                        var newOverloads = newMembers.Where(n => n.Name == item.p.Name).ToList();
+                        var start = item.p.Parameters.IndexOf(item.p.Parameters.First(item => item.IsOptional));
+                        List<IMethodSymbol> foundNewMembers = new List<IMethodSymbol>();
+                        for (int i = start; i <= item.p.Parameters.Length; i++)
+                        {
+                            var ps = item.p.Parameters.Take(i);
+                            var matches = newOverloads.Where(n => n.Parameters.Length == i);
+                            for (int j = 0; j < i; j++)
+                            {
+                                matches = matches.Where(m => m.Parameters[j].Type.GetFullTypeName() == item.p.Parameters[j].Type.GetFullTypeName()).ToList();
+                            }
+                            if (matches.Count() == 1)
+                            {
+                                foundNewMembers.Add(matches.Single());
+                            }
+                            else
+                                found = false;
+                        }
+                        if (found)
+                        {
+                            foreach (var member in foundNewMembers)
+                                newMembers.Remove(member);
+                            if (oldMembers.Contains(item.p))
+                                oldMembers.Remove(item.p);
+                        }
+                    }
+                }
+            }
+            return result;
         }
 
         public static IEnumerable<IFieldSymbol> GetEnums(this INamedTypeSymbol type)
