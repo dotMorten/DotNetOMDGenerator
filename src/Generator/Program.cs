@@ -187,7 +187,7 @@ namespace Generator
                 }
                 if (resultStream is null)
                 {
-                    Console.WriteLine($"'{package[1]}' not found");
+                    Console.WriteLine($"'{package}' not found");
                     return null;
                 }
                 using var packageReader = new NuGet.Packaging.PackageArchiveReader(resultStream);
@@ -196,7 +196,7 @@ namespace Generator
 
                 if (nearest is null)
                 {
-                    Console.WriteLine($"No compatible target framework found for '{tfm}' in '{package[0]}'");
+                    Console.WriteLine($"No compatible target framework found for '{tfm}' in '{package}'");
                     resultStream.Dispose();
                     return null;
                 }
