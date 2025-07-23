@@ -19,7 +19,7 @@ namespace Generator
             this.generators = generators;
         }
 
-        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null)
         {
             var compilation = await CreateCompilationAsync(paths, assemblies, preprocessors, filters, referenceAssemblies);
             Console.WriteLine("Processing types...");
@@ -30,6 +30,8 @@ namespace Generator
                 generator.Initialize(symbols);
                 foreach (var s in symbols)
                 {
+                    if (objectFilters is not null && objectFilters.Any(o => s.ToDisplayString().StartsWith(o)))
+                        continue;
                     GenerateCode(generator, s);
                 }
                 generator.Complete();
@@ -307,7 +309,7 @@ namespace Generator
 
         //************* Difference comparisons *******************/
 
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null)
         {
             var oldCompilation = await CreateCompilationAsync(oldPaths, oldAssemblies, preprocessors, filters, referenceAssemblies);
             var newCompilation = await CreateCompilationAsync(newPaths, newAssemblies, preprocessors, filters, referenceAssemblies);
@@ -321,6 +323,8 @@ namespace Generator
                 i = 0;
                 foreach (var s in symbols)
                 {
+                    if (objectFilters is not null && objectFilters.Any(o => s.oldSymbol != null && s.oldSymbol.ToDisplayString().StartsWith(o) || s.newSymbol != null && s.newSymbol.ToDisplayString().StartsWith(o)))
+                        continue;
                     GenerateCode(generator, s.newSymbol, s.oldSymbol);
                     i++;
                 }

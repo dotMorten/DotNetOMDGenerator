@@ -67,6 +67,7 @@ namespace Generator
             string[] assemblies = arg.ContainsKey("assemblies") ? arg["assemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : new string[] { };
             string[] compareAssemblies = arg.ContainsKey("compareAssemblies") ? arg["compareAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] referenceAssemblies = arg.ContainsKey("referenceAssemblies") ? arg["referenceAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
+            string[] filterTypes = arg.ContainsKey("filter") ? arg["filter"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] nugetPackages = arg.ContainsKey("nuget") ? arg["nuget"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] compareNugetPackages = arg.ContainsKey("compareNuget") ? arg["compareNuget"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string tfm = arg.ContainsKey("tfm") ? arg["tfm"] : null;
@@ -101,9 +102,9 @@ namespace Generator
                 GeneratorSettings.OutputLocation = System.IO.Path.Combine(GeneratorSettings.OutputLocation, "OMD");
 
             if (oldSource != null || compareAssemblies != null)
-                await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray(), referenceAssemblies);
+                await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
             else
-                await g.Process(source, assemblies, preprocessors, filters.ToArray(), referenceAssemblies);
+                await g.Process(source, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
 
             if(System.Diagnostics.Debugger.IsAttached)
                 Console.ReadKey();
@@ -240,6 +241,7 @@ namespace Generator
             Console.WriteLine("  referenceAssemblies  Specifies a set of assemblies to include for references for better type resolution.");
             Console.WriteLine("  showPrivate          Show private members (default is false)");
             Console.WriteLine("  showInternal         Show internal members (default is false)");
+            Console.WriteLine("  filter               A set of namespaces or classes to ignore. For example: -filter=Microsoft.CSharp;Microsoft.VisualBasic"); 
             Console.Write("Using Nuget comparison:");
             Console.WriteLine("  nuget                nuget packages to generate OMD for (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:13.0.0");
             Console.WriteLine("  compareNuget         nuget packages to compare versions with (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:12.0.0");
