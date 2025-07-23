@@ -197,9 +197,11 @@ namespace Generator
 
                 if (nearest is null)
                 {
-                    Console.WriteLine($"No compatible target framework found for '{tfm}' in '{package}'");
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"Warning: No compatible target framework libs found for '{tfm}' in '{package}'");
+                    Console.ResetColor();
                     resultStream.Dispose();
-                    return null;
+                    continue;
                 }
                 var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
                 packageReader.CopyFiles(path, nearest.Items, (string sourceFile, string targetPath, Stream fileStream) =>
