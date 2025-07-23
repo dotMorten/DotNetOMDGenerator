@@ -1,11 +1,14 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using NuGet.Protocol.Core.Types;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Generator
@@ -45,7 +48,7 @@ namespace Generator
             {
                 generators.Add(new Generators.HtmlOmdGenerator());
             }
-            if (!arg.ContainsKey("source") && !arg.ContainsKey("assemblies"))
+            if (!arg.ContainsKey("source") && !arg.ContainsKey("assemblies") && !arg.ContainsKey("nuget"))
             {
                 WriteUsage();
                 return;
@@ -64,7 +67,28 @@ namespace Generator
             string[] assemblies = arg.ContainsKey("assemblies") ? arg["assemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : new string[] { };
             string[] compareAssemblies = arg.ContainsKey("compareAssemblies") ? arg["compareAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] referenceAssemblies = arg.ContainsKey("referenceAssemblies") ? arg["referenceAssemblies"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
-            
+            string[] nugetPackages = arg.ContainsKey("nuget") ? arg["nuget"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
+            string[] compareNugetPackages = arg.ContainsKey("compareNuget") ? arg["compareNuget"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
+            string tfm = arg.ContainsKey("tfm") ? arg["tfm"] : null;
+
+            // Fetch nuget packages
+            if (nugetPackages != null && nugetPackages.Length > 0)
+            {
+                var nugetAssemblies = await ParseNugets(nugetPackages, tfm);
+                if (nugetAssemblies is null)
+                    return;
+                Console.WriteLine($"Found {nugetAssemblies.Length} assemblies in nuget packages");
+                assemblies = assemblies == null ? nugetAssemblies : assemblies.Concat(nugetAssemblies).ToArray();
+            }
+            if (compareNugetPackages != null && compareNugetPackages.Length > 0)
+            {
+                var nugetAssemblies = await ParseNugets(compareNugetPackages, tfm);
+                if (nugetAssemblies is null)
+                    return;
+                Console.WriteLine($"Found {nugetAssemblies.Length} assemblies in nuget packages");
+                compareAssemblies = compareAssemblies == null ? nugetAssemblies : compareAssemblies.Concat(nugetAssemblies).ToArray();
+            }
+
             var g = new Generator(generators);
 
             //Set up output filename
@@ -83,6 +107,113 @@ namespace Generator
 
             if(System.Diagnostics.Debugger.IsAttached)
                 Console.ReadKey();
+        }
+        static List<FindPackageByIdResource> resources;
+        private async static Task<string[]> ParseNugets(string[] nugetPackages, string tfm)
+        {
+            if (string.IsNullOrEmpty(tfm))
+            {
+                Console.WriteLine("A target framework identifier is required with nuget parameter. For example: '-tfm net8.0-windows10.0.19041.0'");
+                return null;
+            }
+
+            if (resources is null)
+            {
+                var settings = NuGet.Configuration.Settings.LoadDefaultSettings(null);
+                var sources = NuGet.Configuration.SettingsUtility.GetEnabledSources(settings);
+                resources = new List<FindPackageByIdResource>();
+                foreach (var source in sources)
+                {
+                    List<Lazy<INuGetResourceProvider>> providers = new List<Lazy<INuGetResourceProvider>>();
+                    providers.AddRange(Repository.Provider.GetCoreV3());  // Add v3 API support
+
+                    SourceRepository repository = new SourceRepository(source, providers);
+                    FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource>();
+                    resources.Add(resource);
+                }
+            }
+
+                List<string> nugetAssemblies = new List<string>();
+            // https://www.nuget.org/api/v2/package/Newtonsoft.Json/13.0.3
+            foreach (var package in nugetPackages)
+            {
+                if (!package.Contains(":"))
+                {
+                    Console.WriteLine($"Invalid nuget identifier {package}. Please use the format `nugetid:version`, for example 'Newtonsoft.Json:13.0.3'");
+                    return null;
+                }
+                string[] id = package.Split(':', 2, StringSplitOptions.None);
+                if (id.Length != 2)
+                {
+                    Console.WriteLine($"Invalid nuget identifier {package}");
+                    return null;
+                }
+                NuGet.Versioning.NuGetVersion version;
+                if (!NuGet.Versioning.NuGetVersion.TryParse(id[1], out version))
+                {
+                    Console.WriteLine($"Invalid nuget version {id[1]}");
+                    return null;
+                }
+                //var f = NuGet.Frameworks.AssetTargetFallbackFramework.ParseFrameworkName(tfm, new NuGet.Frameworks.DefaultFrameworkNameProvider());
+                var f = NuGet.Frameworks.NuGetFramework.Parse(tfm, new NuGet.Frameworks.DefaultFrameworkNameProvider());
+
+                Console.WriteLine($"Getting NuGet package {package}...");
+                MemoryStream resultStream = null;
+                foreach (var resource in resources)
+                {
+                    var exists = await resource.DoesPackageExistAsync(id[0], version, new SourceCacheContext(), NuGet.Common.NullLogger.Instance, System.Threading.CancellationToken.None);
+                    if (!exists)
+                    {
+                        continue;
+                    }
+                    MemoryStream packageStream = new MemoryStream();
+                    bool result = await resource.CopyNupkgToStreamAsync(
+                        id[0],
+                        version,
+                        packageStream,
+                        new SourceCacheContext(),
+                        NuGet.Common.NullLogger.Instance,
+                        System.Threading.CancellationToken.None);
+                    if (result)
+                    {
+                        resultStream = packageStream;
+                        resultStream.Seek(0, SeekOrigin.Begin);
+                        break;
+                    }
+                    else
+                    {
+                        packageStream.Dispose();
+                    }
+                }
+                if (resultStream is null)
+                {
+                    Console.WriteLine($"'{package[1]}' not found");
+                    return null;
+                }
+                using var packageReader = new NuGet.Packaging.PackageArchiveReader(resultStream);
+                var libs = (await packageReader.GetLibItemsAsync(CancellationToken.None)).ToList();
+                var nearest = NuGet.Frameworks.NuGetFrameworkExtensions.GetNearest(libs, f);
+
+                if (nearest is null)
+                {
+                    Console.WriteLine($"No compatible target framework found for '{tfm}' in '{package[0]}'");
+                    resultStream.Dispose();
+                    return null;
+                }
+                var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+                packageReader.CopyFiles(path, nearest.Items, (string sourceFile, string targetPath, Stream fileStream) =>
+                {
+                    FileInfo fi = new FileInfo(targetPath);
+                    if (!fi.Directory.Exists)
+                        fi.Directory.Create();
+                    using var fs = File.Create(targetPath);
+                    fileStream.CopyTo(fs);
+                    nugetAssemblies.Add(targetPath);
+                    return targetPath;
+                }, NuGet.Common.NullLogger.Instance, CancellationToken.None);
+                resultStream.Dispose();
+            }
+            return nugetAssemblies.ToArray();
         }
 
         private static System.Text.RegularExpressions.Regex CreateFilter(string pattern, bool caseSensitive = false)
@@ -109,6 +240,10 @@ namespace Generator
             Console.WriteLine("  referenceAssemblies  Specifies a set of assemblies to include for references for better type resolution.");
             Console.WriteLine("  showPrivate          Show private members (default is false)");
             Console.WriteLine("  showInternal         Show internal members (default is false)");
+            Console.Write("Using Nuget comparison:");
+            Console.WriteLine("  nuget                nuget packages to generate OMD for (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:13.0.0");
+            Console.WriteLine("  compareNuget         nuget packages to compare versions with (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:12.0.0");
+            Console.WriteLine("  tfm                  Target Framework to use against NuGet package. Example: /tfm=net8.0-windows10.0.19041.0");
         }
     }
 }

@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <PackAsTool>true</PackAsTool>
     <PackageTypes>DotnetTool,DotNetCliTool</PackageTypes>
     <ToolCommandName>generateomd</ToolCommandName>
     <PackageOutputPath>./../nupkg</PackageOutputPath>
     <PackageId>dotMorten.OmdGenerator</PackageId>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <Authors>Morten Nielsen</Authors>
     <Product>OMD Generator</Product>
     <Description>Automatically generates an HTML Document with an object model diagram for your C# library&lt;</Description>
@@ -45,6 +45,8 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="2.7.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="2.7.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="2.7.0" />
+    <PackageReference Include="NuGet.Configuration" Version="6.14.0" />
+    <PackageReference Include="NuGet.Protocol" Version="6.14.0" />
   </ItemGroup>
 
 </Project>
