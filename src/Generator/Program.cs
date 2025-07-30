@@ -204,7 +204,7 @@ namespace Generator
                     continue;
                 }
                 var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-                packageReader.CopyFiles(path, nearest.Items, (string sourceFile, string targetPath, Stream fileStream) =>
+                packageReader.CopyFiles(path, nearest.Items.Where(i => !i.EndsWith("/")), (string sourceFile, string targetPath, Stream fileStream) =>
                 {
                     FileInfo fi = new FileInfo(targetPath);
                     if (!fi.Directory.Exists)
