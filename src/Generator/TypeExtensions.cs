@@ -87,7 +87,11 @@ namespace Generator
         public static IEnumerable<IMethodSymbol> GetMethods(this INamedTypeSymbol type)
         {
             if (type.TypeKind == TypeKind.Delegate)
+            {
+                if (type.DelegateInvokeMethod != null)
+                    return new[] { type.DelegateInvokeMethod };
                 return Enumerable.Empty<IMethodSymbol>();
+            }
             return type.GetAllMembers().OfType<IMethodSymbol>()
                 .Where(m => m.CanBeReferencedByName)
                 .OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))).OrderBy(m=>m.Name);

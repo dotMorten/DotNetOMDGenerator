@@ -419,8 +419,8 @@ namespace Generator
                 var eventsOld = y.GetEvents();
                 if (eventsNew.Count() != eventsOld.Count()) return false;
 
-                var fieldsNew = x.GetEnums();
-                var fieldsOld = y.GetEnums();
+                var fieldsNew = x.TypeKind == TypeKind.Enum ? x.GetEnums() : x.GetFields();
+                var fieldsOld = y.TypeKind == TypeKind.Enum ? y.GetEnums() : y.GetFields();
                 if (fieldsNew.Count() != fieldsOld.Count()) return false;
 
                 if (ifacesNew.Except(ifacesOld, SymbolNameComparer.Comparer).Any() ||
