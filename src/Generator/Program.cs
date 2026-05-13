@@ -1,6 +1,11 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using NuGet.Common;
+using NuGet.Frameworks;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.Protocol.Core.Types;
+using NuGet.Versioning;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -70,12 +75,13 @@ namespace Generator
             string[] filterTypes = arg.ContainsKey("filter") ? arg["filter"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] nugetPackages = arg.ContainsKey("nuget") ? arg["nuget"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string[] compareNugetPackages = arg.ContainsKey("compareNuget") ? arg["compareNuget"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
+            string nugetDependencies = arg.ContainsKey("nugetDependencies") ? arg["nugetDependencies"] : null;
             string tfm = arg.ContainsKey("tfm") ? arg["tfm"] : null;
 
             // Fetch nuget packages
             if (nugetPackages != null && nugetPackages.Length > 0)
             {
-                var nugetAssemblies = await ParseNugets(nugetPackages, tfm);
+                var nugetAssemblies = await ParseNugets(nugetPackages, tfm, nugetDependencies);
                 if (nugetAssemblies is null)
                     return;
                 Console.WriteLine($"Found {nugetAssemblies.Length} assemblies in nuget packages");
@@ -83,7 +89,7 @@ namespace Generator
             }
             if (compareNugetPackages != null && compareNugetPackages.Length > 0)
             {
-                var nugetAssemblies = await ParseNugets(compareNugetPackages, tfm);
+                var nugetAssemblies = await ParseNugets(compareNugetPackages, tfm, nugetDependencies);
                 if (nugetAssemblies is null)
                     return;
                 Console.WriteLine($"Found {nugetAssemblies.Length} assemblies in nuget packages");
@@ -109,8 +115,9 @@ namespace Generator
             if(System.Diagnostics.Debugger.IsAttached)
                 Console.ReadKey();
         }
-        static List<FindPackageByIdResource> resources;
-        private async static Task<string[]> ParseNugets(string[] nugetPackages, string tfm)
+        static List<NuGetSourceResources> resources;
+
+        internal static async Task<string[]> ParseNugets(string[] nugetPackages, string tfm, string dependencyExpression = null)
         {
             if (string.IsNullOrEmpty(tfm))
             {
@@ -118,91 +125,76 @@ namespace Generator
                 return null;
             }
 
+            var framework = NuGetFramework.Parse(tfm, new DefaultFrameworkNameProvider());
+            var dependencyFilter = NuGetDependencyExpression.Parse(dependencyExpression);
+
             if (resources is null)
             {
                 var settings = NuGet.Configuration.Settings.LoadDefaultSettings(null);
                 var sources = NuGet.Configuration.SettingsUtility.GetEnabledSources(settings);
-                resources = new List<FindPackageByIdResource>();
+                resources = new List<NuGetSourceResources>();
                 foreach (var source in sources)
                 {
                     List<Lazy<INuGetResourceProvider>> providers = new List<Lazy<INuGetResourceProvider>>();
                     providers.AddRange(Repository.Provider.GetCoreV3());  // Add v3 API support
-
+ 
                     SourceRepository repository = new SourceRepository(source, providers);
-                    FindPackageByIdResource resource = await repository.GetResourceAsync<FindPackageByIdResource>();
-                    resources.Add(resource);
+                    FindPackageByIdResource findPackage = await repository.GetResourceAsync<FindPackageByIdResource>();
+                    DependencyInfoResource dependencyInfo = await repository.GetResourceAsync<DependencyInfoResource>();
+                    resources.Add(new NuGetSourceResources(repository, findPackage, dependencyInfo));
                 }
             }
 
-                List<string> nugetAssemblies = new List<string>();
-            // https://www.nuget.org/api/v2/package/Newtonsoft.Json/13.0.3
+            List<string> nugetAssemblies = new List<string>();
+            List<PackageIdentity> rootPackages = new List<PackageIdentity>();
             foreach (var package in nugetPackages)
             {
-                if (!package.Contains(":"))
-                {
-                    Console.WriteLine($"Invalid nuget identifier {package}. Please use the format `nugetid:version`, for example 'Newtonsoft.Json:13.0.3'");
+                var rootPackage = ParsePackageIdentity(package);
+                if (rootPackage is null)
                     return null;
-                }
-                string[] id = package.Split(':', 2, StringSplitOptions.None);
-                if (id.Length != 2)
-                {
-                    Console.WriteLine($"Invalid nuget identifier {package}");
-                    return null;
-                }
-                NuGet.Versioning.NuGetVersion version;
-                if (!NuGet.Versioning.NuGetVersion.TryParse(id[1], out version))
-                {
-                    Console.WriteLine($"Invalid nuget version {id[1]}");
-                    return null;
-                }
-                //var f = NuGet.Frameworks.AssetTargetFallbackFramework.ParseFrameworkName(tfm, new NuGet.Frameworks.DefaultFrameworkNameProvider());
-                var f = NuGet.Frameworks.NuGetFramework.Parse(tfm, new NuGet.Frameworks.DefaultFrameworkNameProvider());
+                rootPackages.Add(rootPackage);
+            }
 
-                Console.WriteLine($"Getting NuGet package {package}...");
-                MemoryStream resultStream = null;
-                foreach (var resource in resources)
-                {
-                    var exists = await resource.DoesPackageExistAsync(id[0], version, new SourceCacheContext(), NuGet.Common.NullLogger.Instance, System.Threading.CancellationToken.None);
-                    if (!exists)
-                    {
-                        continue;
-                    }
-                    MemoryStream packageStream = new MemoryStream();
-                    bool result = await resource.CopyNupkgToStreamAsync(
-                        id[0],
-                        version,
-                        packageStream,
-                        new SourceCacheContext(),
-                        NuGet.Common.NullLogger.Instance,
-                        System.Threading.CancellationToken.None);
-                    if (result)
-                    {
-                        resultStream = packageStream;
-                        resultStream.Seek(0, SeekOrigin.Begin);
-                        break;
-                    }
-                    else
-                    {
-                        packageStream.Dispose();
-                    }
-                }
+            var packagesToDownload = new Dictionary<string, PackageIdentity>(StringComparer.OrdinalIgnoreCase);
+            foreach (var rootPackage in rootPackages)
+                packagesToDownload[NuGetDependencyCollector.GetIdentityKey(rootPackage)] = rootPackage;
+
+            if (dependencyFilter != null && dependencyFilter.HasRules)
+            {
+                var resolutionContext = new NuGetDependencyResolutionContext(rootPackages, GetAvailableVersionsAsync);
+                var dependencies = await NuGetDependencyCollector.CollectIncludedDependenciesAsync(
+                    rootPackages,
+                    dependencyFilter,
+                    p => LoadPackageNodeAsync(p, framework),
+                    resolutionContext.ResolveDependencyIdentityAsync).ConfigureAwait(false);
+
+                foreach (var dependency in dependencies)
+                    packagesToDownload[NuGetDependencyCollector.GetIdentityKey(dependency)] = dependency;
+
+                Console.WriteLine($"Including {dependencies.Count} dependency package(s) matching '{dependencyExpression}'.");
+            }
+
+            foreach (var packageIdentity in packagesToDownload.Values)
+            {
+                Console.WriteLine($"Getting NuGet package {packageIdentity.Id}:{packageIdentity.Version}...");
+                using var resultStream = await DownloadPackageAsync(packageIdentity).ConfigureAwait(false);
                 if (resultStream is null)
                 {
-                    Console.WriteLine($"'{package}' not found");
+                    Console.WriteLine($"'{packageIdentity.Id}:{packageIdentity.Version}' not found");
                     return null;
                 }
-                using var packageReader = new NuGet.Packaging.PackageArchiveReader(resultStream);
-                var libs = (await packageReader.GetLibItemsAsync(CancellationToken.None)).ToList();
-                var nearest = NuGet.Frameworks.NuGetFrameworkExtensions.GetNearest(libs, f);
+                using var packageReader = new PackageArchiveReader(resultStream);
+                var libs = (await packageReader.GetLibItemsAsync(CancellationToken.None).ConfigureAwait(false)).ToList();
+                var nearest = NuGetFrameworkUtility.GetNearest(libs, framework);
 
                 if (nearest is null)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine($"Warning: No compatible target framework libs found for '{tfm}' in '{package}'");
+                    Console.WriteLine($"Warning: No compatible target framework libs found for '{packageIdentity.Id}:{packageIdentity.Version}' with '{tfm}'");
                     Console.ResetColor();
-                    resultStream.Dispose();
                     continue;
                 }
+
                 var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
                 packageReader.CopyFiles(path, nearest.Items.Where(i => !i.EndsWith("/")), (string sourceFile, string targetPath, Stream fileStream) =>
                 {
@@ -213,10 +205,103 @@ namespace Generator
                     fileStream.CopyTo(fs);
                     nugetAssemblies.Add(targetPath);
                     return targetPath;
-                }, NuGet.Common.NullLogger.Instance, CancellationToken.None);
-                resultStream.Dispose();
+                }, NullLogger.Instance, CancellationToken.None);
             }
             return nugetAssemblies.ToArray();
+        }
+
+        private async static Task<NuGetPackageNode> LoadPackageNodeAsync(PackageIdentity package, NuGetFramework framework)
+        {
+            foreach (var resource in resources)
+            {
+                var dependencyInfo = await resource.DependencyInfo.ResolvePackage(package, framework, new SourceCacheContext(), NullLogger.Instance, CancellationToken.None).ConfigureAwait(false);
+                if (dependencyInfo != null)
+                    return new NuGetPackageNode(new PackageIdentity(dependencyInfo.Id, dependencyInfo.Version), dependencyInfo.Dependencies);
+            }
+            return null;
+        }
+
+        private async static Task<IReadOnlyList<NuGetVersion>> GetAvailableVersionsAsync(string packageId)
+        {
+            var versions = new List<NuGetVersion>();
+            foreach (var resource in resources)
+            {
+                var sourceVersions = await resource.FindPackageById.GetAllVersionsAsync(packageId, new SourceCacheContext(), NullLogger.Instance, CancellationToken.None).ConfigureAwait(false);
+                if (sourceVersions != null)
+                    versions.AddRange(sourceVersions);
+            }
+
+            return versions
+                .Distinct()
+                .OrderBy(v => v)
+                .ToArray();
+        }
+
+        private async static Task<MemoryStream> DownloadPackageAsync(PackageIdentity packageIdentity)
+        {
+            foreach (var resource in resources)
+            {
+                var exists = await resource.FindPackageById.DoesPackageExistAsync(packageIdentity.Id, packageIdentity.Version, new SourceCacheContext(), NullLogger.Instance, CancellationToken.None).ConfigureAwait(false);
+                if (!exists)
+                    continue;
+
+                MemoryStream packageStream = new MemoryStream();
+                bool result = await resource.FindPackageById.CopyNupkgToStreamAsync(
+                    packageIdentity.Id,
+                    packageIdentity.Version,
+                    packageStream,
+                    new SourceCacheContext(),
+                    NullLogger.Instance,
+                    CancellationToken.None).ConfigureAwait(false);
+                if (!result)
+                {
+                    packageStream.Dispose();
+                    continue;
+                }
+
+                packageStream.Seek(0, SeekOrigin.Begin);
+                return packageStream;
+            }
+            return null;
+        }
+
+        private static PackageIdentity ParsePackageIdentity(string package)
+        {
+            if (!package.Contains(":"))
+            {
+                Console.WriteLine($"Invalid nuget identifier {package}. Please use the format `nugetid:version`, for example 'Newtonsoft.Json:13.0.3'");
+                return null;
+            }
+
+            string[] id = package.Split(':', 2, StringSplitOptions.None);
+            if (id.Length != 2)
+            {
+                Console.WriteLine($"Invalid nuget identifier {package}");
+                return null;
+            }
+
+            NuGetVersion version;
+            if (!NuGetVersion.TryParse(id[1], out version))
+            {
+                Console.WriteLine($"Invalid nuget version {id[1]}");
+                return null;
+            }
+
+            return new PackageIdentity(id[0], version);
+        }
+
+        private sealed class NuGetSourceResources
+        {
+            public NuGetSourceResources(SourceRepository repository, FindPackageByIdResource findPackageById, DependencyInfoResource dependencyInfo)
+            {
+                Repository = repository;
+                FindPackageById = findPackageById;
+                DependencyInfo = dependencyInfo;
+            }
+
+            public SourceRepository Repository { get; }
+            public FindPackageByIdResource FindPackageById { get; }
+            public DependencyInfoResource DependencyInfo { get; }
         }
 
         private static System.Text.RegularExpressions.Regex CreateFilter(string pattern, bool caseSensitive = false)
@@ -247,6 +332,7 @@ namespace Generator
             Console.Write("Using Nuget comparison:");
             Console.WriteLine("  nuget                nuget packages to generate OMD for (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:13.0.0");
             Console.WriteLine("  compareNuget         nuget packages to compare versions with (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:12.0.0");
+            Console.WriteLine("  nugetDependencies    Dependency package ID patterns to include for nuget/compareNuget. Use ; to separate multiple patterns and prefix ! to exclude. Example: /nugetDependencies=Microsoft.WindowsAppSDK.*;!Microsoft.WindowsAppSDK.Tests.*");
             Console.WriteLine("  tfm                  Target Framework to use against NuGet package. Example: /tfm=net8.0-windows10.0.19041.0");
         }
     }

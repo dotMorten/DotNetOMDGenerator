@@ -44,6 +44,8 @@ Optional parameters:
   showPrivate       Show private members (default is false)
   showInternal      Show internal members (default is false)
   output            Filename to write the output to (extension is optional, but exclude the extension if you specify multiple formats)
+  nugetDependencies Dependency package ID patterns to include for /nuget and /compareNuget.
+                    Separate with ; for multiple patterns and prefix with ! to exclude a package or subtree.
 ```
 
 
@@ -88,4 +90,8 @@ What's new in Xamarin.Forms? Compare assemblies from the nuget cache:
 generateomd /assemblies=%USERPROFILE%\.nuget\packages\xamarin.forms\3.3.0.912540\lib\netstandard2.0\*.dll /compareAsssemblies=%USERPROFILE%\.nuget\packages\xamarin.forms\3.2.0.871581\lib\netstandard2.0\*.dll
 ```
 
+Compare a meta package and include only matching dependency packages in the analysis:
+```
+generateomd /nuget=Microsoft.WindowsAppSDK:1.0.0 /compareNuget=Microsoft.WindowsAppSDK:0.8.0 /tfm=net8.0-windows10.0.19041.0 /nugetDependencies="Microsoft.WindowsAppSDK.*;!Microsoft.WindowsAppSDK.Tests.*"
+```
 
