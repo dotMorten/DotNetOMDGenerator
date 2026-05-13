@@ -392,6 +392,9 @@ namespace Generator
 
                 if (x.TypeKind != y.TypeKind) return false;
 
+                if (x.GetDeclarationKind() != y.GetDeclarationKind())
+                    return false;
+
                 var ifacesNew = x.GetInterfaces();
                 var ifacesOld = y.GetInterfaces();
                 if (ifacesNew.Count() != ifacesOld.Count()) return false;

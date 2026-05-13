@@ -66,22 +66,13 @@ namespace Generator.Generators
             if (isTypeRemoved)
                 type = oldType;
 
-            string kind = "";
-            switch (type.TypeKind)
-            {
-                case TypeKind.Struct:
-                case TypeKind.Class: kind = "class"; break;
-                case TypeKind.Delegate: kind = "delegate"; break;
-                case TypeKind.Enum: kind = "enum"; break;
-                case TypeKind.Interface: kind = "interface"; break;
-                default:
-                    return; //Not supported
-            }
-            //When loading assemblies the kind isn't recognized
-            if(kind == "class" && type.BaseType.GetFullTypeName() =="System.Enum")
-            {
-                kind = "enum";
-            }
+            string kind = type.GetStyleKind();
+            if (kind == null)
+                return; //Not supported
+
+            string declarationKind = type.GetDeclarationKind();
+            string oldDeclarationKind = oldType?.GetDeclarationKind();
+            bool isEnum = type.IsEnumLike();
 
             var nsname = type.GetFullNamespace();
             if (nsname != currentNamespace)
@@ -166,7 +157,7 @@ namespace Generator.Generators
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
-                if (kind != "enum" && type.GetFields(oldType).Any())
+                if (!isEnum && type.GetFields(oldType).Any())
                 {
                     isEmpty = false;
                     memberBuilder.AppendLine($"<div class='members'><h4>Fields</h4><ul>");
@@ -181,7 +172,7 @@ namespace Generator.Generators
                     }
                     memberBuilder.AppendLine("</ul></div>");
                 }
-                if (kind == "enum")
+                if (isEnum)
                 {
                     isEmpty = false;
                     memberBuilder.AppendLine("<ul class='members'>");
@@ -227,14 +218,14 @@ namespace Generator.Generators
 
             //Write class name + Inheritance
             var brief = type.GetDescription();
-            sw.Write($"<span ");
+            sw.Write($"<span class='typeName' ");
             if (!string.IsNullOrEmpty(brief))
                 sw.Write($"title=\"{System.Web.HttpUtility.HtmlEncode(brief)}\"");
             sw.Write('>');
             if (!isTypeNew && !isTypeRemoved) sw.Write($"<span class='existing'>");
             sw.Write(System.Web.HttpUtility.HtmlEncode(type.Name));
             if (!isTypeNew && !isTypeRemoved) sw.Write("</span>");
-            if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && kind != "enum")
+            if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && !isEnum)
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
                 {
@@ -247,7 +238,7 @@ namespace Generator.Generators
                         sw.Write($" : {FormatType(type.BaseType)}");
                 }
             }
-            else if(kind == "enum")
+            else if(isEnum)
             {
                 if(type.TypeKind == TypeKind.Enum)
                 {
@@ -280,6 +271,13 @@ namespace Generator.Generators
                 }
             }
             sw.WriteLine("</span>");
+            sw.Write("<div class='typeKind'>");
+            if (!isTypeRemoved && oldDeclarationKind != null && oldDeclarationKind != declarationKind)
+            {
+                sw.Write($"<span class='memberRemoved'>{System.Web.HttpUtility.HtmlEncode(oldDeclarationKind)}</span> ");
+            }
+            sw.Write(System.Web.HttpUtility.HtmlEncode(declarationKind));
+            sw.WriteLine("</div>");
 
             //Document interfaces
             if (type.GetInterfaces(oldType).Any())

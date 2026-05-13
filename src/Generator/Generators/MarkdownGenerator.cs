@@ -73,31 +73,26 @@ namespace Generator.Generators
             if (isTypeRemoved)
                 type = oldType;
 
-            string kind = "";
-            switch (type.TypeKind)
-            {
-                case TypeKind.Struct:
-                case TypeKind.Class:
-                    if (type.BaseType.GetFullTypeName() == "System.Enum")
-                        kind = "enum"; //When loading assemblies the enum kind isn't recognized
-                    else
-                    {
-                        kind = "class";
-                        if (type.IsSealed && (oldType == null || oldType.IsSealed)) kind = "sealed " + kind;
-                        else if (type.IsSealed && !oldType.IsSealed) kind = $"{AddedStart}sealed{AddedEnd} {kind}";
-                        else if (!type.IsSealed && oldType != null && oldType.IsSealed) kind = $"{RemoveStart}sealed{RemoveEnd} {kind}";
+            string rawKind = type.GetDeclarationKind();
+            if (rawKind == null)
+                return; //Not supported
 
-                        if (type.IsStatic && (oldType == null || oldType.IsStatic)) kind = "static " + kind;
-                        else if (type.IsStatic && !oldType.IsStatic) kind = $"{AddedStart}static{AddedEnd} {kind}";
-                        else if (!type.IsStatic && oldType != null && oldType.IsStatic) kind = $"{RemoveStart}static{RemoveEnd} {kind}";
-                    }
-                    break;
-                case TypeKind.Delegate: kind = "delegate"; break;
-                case TypeKind.Enum: kind = "enum"; break;
-                case TypeKind.Interface: kind = "interface"; break;
-                default:
-                    return; //Not supported
+            string kind = rawKind;
+            string oldRawKind = oldType?.GetDeclarationKind();
+            bool isEnum = type.IsEnumLike();
+            if (type.TypeKind == TypeKind.Class && !isEnum)
+            {
+                if (type.IsSealed && (oldType == null || oldType.IsSealed)) kind = "sealed " + kind;
+                else if (type.IsSealed && !oldType.IsSealed) kind = $"{AddedStart}sealed{AddedEnd} {kind}";
+                else if (!type.IsSealed && oldType != null && oldType.IsSealed) kind = $"{RemoveStart}sealed{RemoveEnd} {kind}";
+
+                if (type.IsStatic && (oldType == null || oldType.IsStatic)) kind = "static " + kind;
+                else if (type.IsStatic && !oldType.IsStatic) kind = $"{AddedStart}static{AddedEnd} {kind}";
+                else if (!type.IsStatic && oldType != null && oldType.IsStatic) kind = $"{RemoveStart}static{RemoveEnd} {kind}";
             }
+
+            if (!isTypeRemoved && !isTypeNew && oldRawKind != null && oldRawKind != rawKind)
+                kind = kind.Replace(rawKind, $"{RemoveStart}{oldRawKind}{RemoveEnd} {AddedStart}{rawKind}{AddedEnd}");
 
             var nsname = type.GetFullNamespace();
             if (nsname != currentNamespace)
@@ -116,7 +111,7 @@ namespace Generator.Generators
             var symbols = Generator.GetChangedSymbols(
                 type == oldType ? Enumerable.Empty<INamedTypeSymbol>() : type.GetAllNestedTypes(),
                 oldType == null ? Enumerable.Empty<INamedTypeSymbol>() : oldType.GetAllNestedTypes());
-            if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && kind != "enum")
+            if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && !isEnum)
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
                 {
@@ -134,7 +129,7 @@ namespace Generator.Generators
                     }
                 }
             }
-            else if (kind == "enum")
+            else if (isEnum)
             {
                 if (type.TypeKind == TypeKind.Enum)
                 {
@@ -263,7 +258,7 @@ namespace Generator.Generators
                 }
             }
 
-            if (kind == "enum")
+            if (isEnum)
             {
                 if (type.TypeKind == TypeKind.Enum)
                 {

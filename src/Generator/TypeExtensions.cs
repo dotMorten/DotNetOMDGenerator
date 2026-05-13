@@ -262,6 +262,53 @@ namespace Generator
         {
             return prop.GetAttributes().Any(a => a.AttributeClass.GetFullTypeName() == "System.ObsoleteAttribute" || a.AttributeClass.GetFullTypeName() == "Obsolete");
         }
+
+        public static bool IsEnumLike(this INamedTypeSymbol type)
+        {
+            return type.TypeKind == TypeKind.Enum ||
+                (type.TypeKind == TypeKind.Class && type.BaseType?.GetFullTypeName() == "System.Enum");
+        }
+
+        public static string GetDeclarationKind(this INamedTypeSymbol type)
+        {
+            if (type.IsEnumLike())
+                return "enum";
+
+            switch (type.TypeKind)
+            {
+                case TypeKind.Struct:
+                    return type.IsRecord ? "record struct" : "struct";
+                case TypeKind.Class:
+                    return type.IsRecord ? "record" : "class";
+                case TypeKind.Interface:
+                    return "interface";
+                case TypeKind.Delegate:
+                    return "delegate";
+                default:
+                    return null;
+            }
+        }
+
+        public static string GetStyleKind(this INamedTypeSymbol type)
+        {
+            if (type.IsEnumLike())
+                return "enum";
+
+            switch (type.TypeKind)
+            {
+                case TypeKind.Struct:
+                    return "struct";
+                case TypeKind.Class:
+                    return "class";
+                case TypeKind.Interface:
+                    return "interface";
+                case TypeKind.Delegate:
+                    return "delegate";
+                default:
+                    return null;
+            }
+        }
+
         public static IEnumerable<IEventSymbol> GetEvents(this INamedTypeSymbol type)
         {
             return type.GetAllMembers().OfType<IEventSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
