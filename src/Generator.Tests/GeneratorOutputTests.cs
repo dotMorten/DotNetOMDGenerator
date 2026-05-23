@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 using GeneratorApp = global::Generator.Generator;
 using GeneratorSettings = global::Generator.GeneratorSettings;
+using ProgramApp = global::Generator.Program;
 using HtmlOmdGenerator = global::Generator.Generators.HtmlOmdGenerator;
 using MarkdownGenerator = global::Generator.Generators.MarkdownGenerator;
 using ICodeGenerator = global::Generator.ICodeGenerator;
@@ -187,6 +189,67 @@ public sealed class GeneratorOutputTests
         StringAssert.Contains(html, "NewMethod()");
     }
 
+    [TestMethod]
+    public async Task MarkdownDiffOutput_ComparesCurrentSourceAgainstGitTag()
+    {
+        using var workspace = new TestWorkspace();
+        var repositoryDirectory = workspace.CreateDirectory("repo");
+        var sourceDirectory = Path.Combine(repositoryDirectory, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        InitializeGitRepository(repositoryDirectory);
+
+        workspace.WriteSource(sourceDirectory, "Types.cs", OldDiffSource);
+        CommitAll(repositoryDirectory, "baseline");
+        RunGit(repositoryDirectory, "tag", "baseline");
+
+        workspace.WriteSource(sourceDirectory, "Types.cs", NewDiffSource);
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "git-tag-diff",
+            $"/source={sourceDirectory}",
+            "/compareRef=baseline");
+
+        StringAssert.Contains(markdown, "<b>public NewMethod();</b>");
+        StringAssert.Contains(markdown, "<strike>public OldMethod();</strike>");
+        StringAssert.Contains(markdown, "public <strike>class</strike> <b>record</b> ChangedToRecord");
+    }
+
+    [TestMethod]
+    public async Task MarkdownDiffOutput_ComparesTwoRefsFromRemoteGitRepository()
+    {
+        using var workspace = new TestWorkspace();
+        var repositoryDirectory = workspace.CreateDirectory("repo");
+        var sourceDirectory = Path.Combine(repositoryDirectory, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        InitializeGitRepository(repositoryDirectory);
+
+        workspace.WriteSource(sourceDirectory, "Types.cs", OldDiffSource);
+        var oldCommit = CommitAll(repositoryDirectory, "old");
+
+        workspace.WriteSource(sourceDirectory, "Types.cs", NewDiffSource);
+        var newCommit = CommitAll(repositoryDirectory, "new");
+
+        var remoteRepositoryDirectory = workspace.CreateDirectory("remote.git");
+        RunGit(workspace.RootPath, "init", "--bare", remoteRepositoryDirectory);
+
+        var remoteRepositoryUri = new Uri(remoteRepositoryDirectory).AbsoluteUri;
+        RunGit(repositoryDirectory, "remote", "add", "origin", remoteRepositoryUri);
+        RunGit(repositoryDirectory, "push", "origin", "HEAD");
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "git-remote-diff",
+            "/source=src",
+            $"/gitRepo={remoteRepositoryUri}",
+            $"/sourceRef={newCommit}",
+            $"/compareRef={oldCommit}");
+
+        StringAssert.Contains(markdown, "<b>public NewMethod();</b>");
+        StringAssert.Contains(markdown, "<strike>public OldMethod();</strike>");
+        StringAssert.Contains(markdown, "<b>public Invoke(string value);</b>");
+    }
+
     private static async Task<string> GenerateMarkdownAsync(string source)
     {
         using var workspace = new TestWorkspace();
@@ -221,6 +284,31 @@ public sealed class GeneratorOutputTests
         workspace.WriteSource(oldDirectory, "Types.cs", oldSource);
         workspace.WriteSource(newDirectory, "Types.cs", newSource);
         return await GenerateOutputAsync(workspace, "diff", newDirectory, oldDirectory, new HtmlOmdGenerator(), ".html");
+    }
+
+    private static async Task<string> GenerateCliMarkdownAsync(TestWorkspace workspace, string outputName, params string[] args)
+    {
+        var outputBasePath = Path.Combine(workspace.RootPath, outputName);
+        var previousOutputLocation = GeneratorSettings.OutputLocation;
+        var previousShowPrivateMembers = GeneratorSettings.ShowPrivateMembers;
+        var previousShowInternalMembers = GeneratorSettings.ShowInternalMembers;
+
+        try
+        {
+            await ProgramApp.RunAsync(args.Concat(new[]
+            {
+                $"/output={outputBasePath}",
+                "/format=md"
+            }).ToArray());
+        }
+        finally
+        {
+            GeneratorSettings.OutputLocation = previousOutputLocation;
+            GeneratorSettings.ShowPrivateMembers = previousShowPrivateMembers;
+            GeneratorSettings.ShowInternalMembers = previousShowInternalMembers;
+        }
+
+        return await File.ReadAllTextAsync(outputBasePath + ".md");
     }
 
     private static async Task<string> GenerateOutputAsync(TestWorkspace workspace, string outputName, string sourceDirectory, string? oldSourceDirectory, ICodeGenerator generator, string extension)
@@ -266,6 +354,47 @@ public sealed class GeneratorOutputTests
         StringAssert.Matches(html, new Regex(pattern, RegexOptions.Singleline));
     }
 
+    private static void InitializeGitRepository(string repositoryDirectory)
+    {
+        RunGit(repositoryDirectory, "init");
+        RunGit(repositoryDirectory, "config", "user.name", "Generator Tests");
+        RunGit(repositoryDirectory, "config", "user.email", "generator.tests@example.com");
+    }
+
+    private static string CommitAll(string repositoryDirectory, string message)
+    {
+        RunGit(repositoryDirectory, "add", ".");
+        RunGit(repositoryDirectory, "commit", "-m", message);
+        return RunGit(repositoryDirectory, "rev-parse", "HEAD");
+    }
+
+    private static string RunGit(string workingDirectory, params string[] arguments)
+    {
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo
+        {
+            FileName = "git",
+            WorkingDirectory = workingDirectory,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+            process.StartInfo.ArgumentList.Add(argument);
+
+        process.Start();
+        var standardOutput = process.StandardOutput.ReadToEnd();
+        var standardError = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"git {string.Join(" ", arguments)} failed: {standardError}");
+
+        return standardOutput.Trim();
+    }
+
     private sealed class TestWorkspace : IDisposable
     {
         public TestWorkspace()
@@ -297,6 +426,7 @@ public sealed class GeneratorOutputTests
             {
                 try
                 {
+                    ResetAttributes(RootPath);
                     Directory.Delete(RootPath, recursive: true);
                     return;
                 }
@@ -313,6 +443,12 @@ public sealed class GeneratorOutputTests
                     Thread.Sleep(50);
                 }
             }
+        }
+
+        private static void ResetAttributes(string directory)
+        {
+            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+                File.SetAttributes(file, FileAttributes.Normal);
         }
     }
 }

@@ -30,6 +30,11 @@ namespace Generator
 
         static async Task Main(string[] args)
         {
+            await RunAsync(args).ConfigureAwait(false);
+        }
+
+        internal static async Task RunAsync(string[] args)
+        {
             Console.WriteLine("*********************** Object Model Generator ***********************");
 
             var arg = ArgumentParser.Parse(args);
@@ -77,6 +82,9 @@ namespace Generator
             string[] compareNugetPackages = arg.ContainsKey("compareNuget") ? arg["compareNuget"].Split(';', StringSplitOptions.RemoveEmptyEntries) : null;
             string nugetDependencies = arg.ContainsKey("nugetDependencies") ? arg["nugetDependencies"] : null;
             string tfm = arg.ContainsKey("tfm") ? arg["tfm"] : null;
+            string gitRepo = arg.ContainsKey("gitRepo") ? arg["gitRepo"] : null;
+            string sourceRef = arg.ContainsKey("sourceRef") ? arg["sourceRef"] : null;
+            string compareRef = arg.ContainsKey("compareRef") ? arg["compareRef"] : null;
 
             // Fetch nuget packages
             if (nugetPackages != null && nugetPackages.Length > 0)
@@ -96,25 +104,53 @@ namespace Generator
                 compareAssemblies = compareAssemblies == null ? nugetAssemblies : compareAssemblies.Concat(nugetAssemblies).ToArray();
             }
 
-            var g = new Generator(generators);
+            GitResolvedSources resolvedGitSources;
+            try
+            {
+                resolvedGitSources = await ResolveGitSourcesAsync(source, oldSource, gitRepo, sourceRef, compareRef).ConfigureAwait(false);
+            }
+            catch (ArgumentException ex)
+            {
+                Console.WriteLine(ex.Message);
+                WriteUsage();
+                return;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
 
-            //Set up output filename
-            if (string.IsNullOrEmpty(GeneratorSettings.OutputLocation))
-                GeneratorSettings.OutputLocation = "./";
-            var fi = new System.IO.FileInfo(GeneratorSettings.OutputLocation);
-            if (!fi.Directory.Exists)
-                throw new System.IO.DirectoryNotFoundException(fi.Directory.FullName);
-            if (fi.Attributes == System.IO.FileAttributes.Directory)
-                GeneratorSettings.OutputLocation = System.IO.Path.Combine(GeneratorSettings.OutputLocation, "OMD");
+            using (resolvedGitSources)
+            {
+                source = resolvedGitSources.SourcePaths;
+                oldSource = resolvedGitSources.CompareSourcePaths;
 
-            if (oldSource != null || compareAssemblies != null)
-                await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
-            else
-                await g.Process(source, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
+                var g = new Generator(generators);
+
+                //Set up output filename
+                if (string.IsNullOrEmpty(GeneratorSettings.OutputLocation))
+                    GeneratorSettings.OutputLocation = "./";
+                var fi = new System.IO.FileInfo(GeneratorSettings.OutputLocation);
+                if (!fi.Directory.Exists)
+                    throw new System.IO.DirectoryNotFoundException(fi.Directory.FullName);
+                if (fi.Attributes == System.IO.FileAttributes.Directory)
+                    GeneratorSettings.OutputLocation = System.IO.Path.Combine(GeneratorSettings.OutputLocation, "OMD");
+
+                if (oldSource != null || compareAssemblies != null)
+                    await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
+                else
+                    await g.Process(source, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
+            }
 
             if(System.Diagnostics.Debugger.IsAttached)
                 Console.ReadKey();
         }
+        private static async Task<GitResolvedSources> ResolveGitSourcesAsync(string[] source, string[] oldSource, string gitRepo, string sourceRef, string compareRef)
+        {
+            return await GitSourceResolver.ResolveAsync(source, oldSource, gitRepo, sourceRef, compareRef).ConfigureAwait(false);
+        }
+
         static List<NuGetSourceResources> resources;
 
         internal static async Task<string[]> ParseNugets(string[] nugetPackages, string tfm, string dependencyExpression = null)
@@ -314,12 +350,15 @@ namespace Generator
         private static void WriteUsage()
         {
             Console.WriteLine("\nUsage:");
-            Console.WriteLine(" --source=[source folder] --compareSource=[oldSourceFolder] --preprocessors=[defines] --output=[out location] --format=[html,md] --filter=[regex] --showPrivate --showInternal");
+            Console.WriteLine(" --source=[source folder] --compareSource=[oldSourceFolder] --gitRepo=[repo path or url] --sourceRef=[commit|branch|tag] --compareRef=[commit|branch|tag] --preprocessors=[defines] --output=[out location] --format=[html,md] --filter=[regex] --showPrivate --showInternal");
             Console.WriteLine("\nRequired parameters (one or more):");
             Console.WriteLine("  source               Specifies the folder of source files to include for the object model.\n                       Separate with ; for multiple folders");
             Console.WriteLine("  assemblies           Specifies a set of assemblies to include for the object model.\n                       Separate with ; for multiple assemblies");
             Console.WriteLine("\nOptional parameters:");
             Console.WriteLine("  compareSource        Specifies a folder to compare source and generate a diff model\n                       This can be useful for finding API changes or compare branches");
+            Console.WriteLine("  gitRepo              Specifies a local git repository path or remote git URL to resolve source paths from when using sourceRef/compareRef");
+            Console.WriteLine("  sourceRef            Specifies the git commit, branch, or tag to use for the source side of a diff");
+            Console.WriteLine("  compareRef           Specifies the git commit, branch, or tag to compare the current source or sourceRef against");
             Console.WriteLine("  compareAssemblies    Specifies a set of assemblies to include to generate a adiff model.\n                       Separate with ; for multiple assemblies");
             Console.WriteLine("  output        Output location");
             Console.WriteLine("  preprocessors        Define a set of preprocessors values. Use ; to separate multiple");

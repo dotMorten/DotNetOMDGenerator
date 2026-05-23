@@ -19,7 +19,7 @@ dotnet tool install --global dotMorten.OmdGenerator
 
 ### Usage:
 ```
-generateomd /source=[source folder] /compareSource=[oldSourceFolder] /preprocessors=[defines] /format=[html|image] /showPrivate /showInternal
+generateomd /source=[source folder] /compareSource=[oldSourceFolder] /gitRepo=[repo path or url] /sourceRef=[commit|branch|tag] /compareRef=[commit|branch|tag] /preprocessors=[defines] /format=[html|image] /showPrivate /showInternal
 
 Required parameters:
   source            Specifies the folder of source files to include for the object model.
@@ -31,6 +31,9 @@ or
 Optional parameters:
   compareSource     Specifies a folder of old source to compare and generate a diff model
                     This can be useful for finding API changes or compare branches
+  gitRepo           Specifies a local git repository path or remote git URL to resolve source paths from when using /sourceRef or /compareRef
+  sourceRef         Specifies the git commit, branch, or tag to use for the source side of a diff
+  compareRef        Specifies the git commit, branch, or tag to compare the current source or /sourceRef against
   compareAssemblies Specifies a set of old assemblies to compare and generate a adiff model.
                     Separate with; for multiple assemblies, or use wildcards
   format            Format to generate: 
@@ -85,6 +88,16 @@ Compare .NET CoreFX Master with v2.0.0 repo branches directly from their Github 
 generateomd /source=https://github.com/dotnet/corefx/archive/master.zip /compareSource=https://github.com/dotnet/corefx/archive/release/2.0.0.zip /exclude="*/ref/*;*/tests/*;*/perftests/*"
 ```
 
+Compare the current checkout against a tagged release from the same git repository:
+```
+generateomd /source=c:\github\dotnet\runtime\src\libraries\System.Text.Json\src /compareRef=v8.0.0
+```
+
+Compare two commits from a remote git repository by resolving the selected repo-relative source path from both refs:
+```
+generateomd /source=src/libraries/System.Text.Json/src /gitRepo=https://github.com/dotnet/runtime.git /sourceRef=9f4f4cf /compareRef=v8.0.0
+```
+
 What's new in Xamarin.Forms? Compare assemblies from the nuget cache:
 ```
 generateomd /assemblies=%USERPROFILE%\.nuget\packages\xamarin.forms\3.3.0.912540\lib\netstandard2.0\*.dll /compareAsssemblies=%USERPROFILE%\.nuget\packages\xamarin.forms\3.2.0.871581\lib\netstandard2.0\*.dll
@@ -94,4 +107,3 @@ Compare a meta package and include only matching dependency packages in the anal
 ```
 generateomd /nuget=Microsoft.WindowsAppSDK:1.0.0 /compareNuget=Microsoft.WindowsAppSDK:0.8.0 /tfm=net8.0-windows10.0.19041.0 /nugetDependencies="Microsoft.WindowsAppSDK.*;!Microsoft.WindowsAppSDK.Tests.*"
 ```
-
