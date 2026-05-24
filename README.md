@@ -80,9 +80,9 @@ It can also be used to compare two folders (for instance two separate branches) 
 
 ### Examples
 
-Generate OMD for .NET source code, and ignore ref and test folders:
+Generate OMD for [.NET source code](https://github.com/dotnet/runtime), and ignore ref and test folders:
 ```
-generateomd --source=c:\github\dotnet\runtime\src\libraries --exclude="*/ref/*;*/tests/*;*/perftests/*"
+generateomd --source=src/libraries --exclude="*/ref/*;*/tests/*;*/perftests/*"
 ```
 
 Compare .NET CoreFX main with v2.0.0 repo branches directly from their Github zipped downloads:
