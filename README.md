@@ -71,21 +71,21 @@ Add the following to your project:
 ```
 
 
-An example of a generated output for all of .NET Core can be found [here](http://www.sharpgis.net/Tests/corefx.html).
+An example of a generated output for all of .NET can be found [here](http://omds.xaml.dev/Tests/dotnet11.html).
 
-It can also be used to compare two folders (for instance two separate branches) and only show changes to the API. [Here's an example of .NET CoreFX v2.0 vs Master](http://www.sharpgis.net/Tests/corefx_new.html).
+It can also be used to compare two folders (for instance two separate branches) and only show changes to the API. [Here's an example of .NDesktop APIs .NET 8 vs .NET 9](https://omds.xaml.dev/net8_vs_net9_desktop.html).
 
-[![Screenshot](Screenshot.png)](http://www.sharpgis.net/Tests/corefx.html)
+[![Screenshot](Screenshot.png)]
 
 
 ### Examples
 
-Generate OMD for .NET Core FX source code, and ignore ref and test folders:
+Generate OMD for .NET source code, and ignore ref and test folders:
 ```
-generateomd --source=c:\github\dotnet\corefx\src --exclude="*/ref/*;*/tests/*;*/perftests/*"
+generateomd --source=c:\github\dotnet\runtime\src\libraries --exclude="*/ref/*;*/tests/*;*/perftests/*"
 ```
 
-Compare .NET CoreFX Master with v2.0.0 repo branches directly from their Github zipped downloads:
+Compare .NET CoreFX main with v2.0.0 repo branches directly from their Github zipped downloads:
 
 ```
 generateomd --source=https://github.com/dotnet/corefx/archive/master.zip --compareSource=https://github.com/dotnet/corefx/archive/release/2.0.0.zip --exclude="*/ref/*;*/tests/*;*/perftests/*"
