@@ -32,7 +32,7 @@ namespace Generator.Generators
                 //close the last namespace section
                 WriteLine("}", 0);
                 WriteLine("</pre>", 0);
-                WriteLine("Generated with (.NET Object Model Diagram Generator)[https://github.com/dotMorten/DotNetOMDGenerator]", 0);
+                WriteLine("Generated with [.NET Object Model Diagram Generator](https://github.com/dotMorten/DotNetOMDGenerator)", 0);
                 sw.Flush();
             }
             sw.Flush();
