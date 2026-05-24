@@ -230,3 +230,139 @@ If you prefer to remove the old bot comment instead of replacing it with a "no A
 If you want the comment to cover multiple source roots, separate them with semicolons in `/source`, for example `/source=src/MyLibrary;src/MyOtherLibrary`.
 
 If your PRs come from forks and you want to comment on those PRs too, you may need a `pull_request_target` workflow instead of `pull_request`. Use that carefully, since it runs with broader repository permissions.
+
+### GitHub Actions: add API diff to release notes
+
+You can also use the same git ref support to append API changes to a GitHub Release. The workflow below runs when a release is published, finds the previous published release, compares the two tags, and inserts or updates a marked API diff section in the release body.
+
+In the workflow below:
+- `/source` is the repo-relative path to the C# source you want to analyze.
+- `sourceRef` is the current release tag.
+- `compareRef` is the previous published release tag.
+- If there is no previous release, the workflow exits without changing the release body.
+- If the diff is empty, the workflow writes a short "no API changes" note into the marked release section.
+
+```yaml
+name: Release API diff
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  api-diff:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install generator
+        run: dotnet tool install --global dotMorten.OmdGenerator
+
+      - name: Find previous published release
+        id: previous_release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+
+            const currentReleaseId = context.payload.release.id;
+            const publishedReleases = releases.filter(release => !release.draft);
+            const currentIndex = publishedReleases.findIndex(release => release.id === currentReleaseId);
+
+            if (currentIndex === -1 || currentIndex === publishedReleases.length - 1) {
+              core.setOutput('tag', '');
+              return;
+            }
+
+            core.setOutput('tag', publishedReleases[currentIndex + 1].tag_name);
+
+      - name: Generate API diff
+        if: steps.previous_release.outputs.tag != ''
+        shell: bash
+        run: |
+          generateomd \
+            /source=src/MyLibrary \
+            /gitRepo=${{ github.server_url }}/${{ github.repository }} \
+            /sourceRef=${{ github.event.release.tag_name }} \
+            /compareRef=${{ steps.previous_release.outputs.tag }} \
+            /format=md \
+            /output=api-diff
+
+      - name: Check whether API changes were found
+        if: steps.previous_release.outputs.tag != ''
+        id: api_diff
+        shell: bash
+        run: |
+          if grep -q '^namespace ' api-diff.md; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update release notes
+        if: steps.previous_release.outputs.tag != ''
+        uses: actions/github-script@v7
+        env:
+          SECTION_MARKER: <!-- dotnet-omd-api-diff -->
+          HAS_CHANGES: ${{ steps.api_diff.outputs.has_changes }}
+          PREVIOUS_TAG: ${{ steps.previous_release.outputs.tag }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const marker = process.env.SECTION_MARKER;
+            const hasChanges = process.env.HAS_CHANGES === 'true';
+            const previousTag = process.env.PREVIOUS_TAG;
+            const diff = fs.readFileSync('api-diff.md', 'utf8').trim();
+
+            const release = context.payload.release;
+            const existingBody = release.body || '';
+
+            const section = hasChanges
+              ? [
+                  marker,
+                  `## API changes since ${previousTag}`,
+                  '',
+                  diff
+                ].join('\n')
+              : [
+                  marker,
+                  `## API changes since ${previousTag}`,
+                  '',
+                  'No API changes are detected since the previous release.'
+                ].join('\n');
+
+            const markerIndex = existingBody.indexOf(marker);
+            const body = markerIndex >= 0
+              ? existingBody.slice(0, markerIndex).trimEnd() + '\n\n' + section
+              : (existingBody.trim()
+                  ? existingBody.trimEnd() + '\n\n' + section
+                  : section);
+
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              tag_name: release.tag_name,
+              name: release.name,
+              body,
+              draft: release.draft,
+              prerelease: release.prerelease
+            });
+```
+
+If you would rather omit the API section entirely when no changes are found, change the `section` assignment so the `!hasChanges` branch returns an empty string and skip the `updateRelease` call when there is no existing marker.
+
+If you want to compare against the previous stable release only, filter out prereleases in the `publishedReleases` list before picking the previous tag.
