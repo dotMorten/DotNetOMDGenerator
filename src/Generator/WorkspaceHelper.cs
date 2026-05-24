@@ -340,7 +340,12 @@ namespace Generator
                 "-getProperty:DefineConstants",
                 "-getProperty:LangVersion",
                 "-getItem:Compile",
-                "-getItem:ReferencePath"
+                "-getItem:ReferencePath",
+                "-property:DesignTimeBuild=true",
+                "-property:BuildProjectReferences=false",
+                "-property:SkipCompilerExecution=true",
+                "-property:ProvideCommandLineArgs=true",
+                "-property:BuildingInsideVisualStudio=true"
             };
             if (!string.IsNullOrWhiteSpace(targetFramework))
                 arguments.Add($"-property:TargetFramework={targetFramework}");

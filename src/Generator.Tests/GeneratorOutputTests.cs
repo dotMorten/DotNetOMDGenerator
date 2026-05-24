@@ -520,6 +520,32 @@ public sealed class GeneratorOutputTests
     }
 
     [TestMethod]
+    public async Task MarkdownOutput_UsesDesignTimeProjectEvaluation()
+    {
+        using var workspace = new TestWorkspace();
+        var projectDirectory = workspace.CreateDirectory("design-time-eval");
+        workspace.WriteSource(projectDirectory, "Types.cs", SharedSource);
+
+        var projectPath = Path.Combine(projectDirectory, "Sample.csproj");
+        workspace.WriteSource(projectDirectory, "Sample.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+              <Target Name="FailWithoutDesignTimeBuild" BeforeTargets="ResolveReferences" Condition="'$(DesignTimeBuild)' != 'true'">
+                <Error Text="DesignTimeBuild must be enabled for project evaluation." />
+              </Target>
+            </Project>
+            """);
+
+        var markdown = await GenerateCliMarkdownAsync(workspace, "design-time-project-output", $"/source={projectPath}");
+
+        StringAssert.Contains(markdown, "public class SharedType");
+    }
+
+    [TestMethod]
     public async Task MarkdownOutput_MergesApisAcrossProjectsWhenTargetFrameworkIsOmitted()
     {
         using var workspace = new TestWorkspace();
