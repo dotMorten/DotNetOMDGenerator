@@ -106,7 +106,7 @@ namespace Generator.Generators
                 currentNamespace = nsname;
             }
             
-            string className = AccessorToString(type.DeclaredAccessibility) + " " + kind + " " + type.Name;
+            string className = AccessorToString(type.DeclaredAccessibility) + " " + kind + " " + type.Name + ApiAvailabilityRegistry.GetAvailabilityLabel(type);
 
             var symbols = Generator.GetChangedSymbols(
                 type == oldType ? Enumerable.Empty<INamedTypeSymbol>() : type.GetAllNestedTypes(),
@@ -177,7 +177,7 @@ namespace Generator.Generators
                         className += ", ";
                     else
                         className += " : ";
-                    var typeName = FormatType(iface.symbol);
+                    var typeName = FormatType(iface.symbol) + ApiAvailabilityRegistry.GetAvailabilityLabel(iface.symbol);
                     if (iface.wasRemoved && !isTypeRemoved)
                         typeName = $"{RemoveStart}{typeName}{RemoveEnd}";
                     else if (isComparison && !isTypeNew)
@@ -444,8 +444,8 @@ namespace Generator.Generators
                 name = FormatType(f.Type) + " " + name;
             }
             if (member.ContainingType.TypeKind == TypeKind.Interface)
-                return name; //Don't add accessor to interface members
-            return accessor + " " + name;
+                return name + ApiAvailabilityRegistry.GetAvailabilityLabel(member, suppressIfSameAsContainingType: true); //Don't add accessor to interface members
+            return accessor + " " + name + ApiAvailabilityRegistry.GetAvailabilityLabel(member, suppressIfSameAsContainingType: true);
         }
 
         private static string Briefify(ISymbol symbol, string content = null)

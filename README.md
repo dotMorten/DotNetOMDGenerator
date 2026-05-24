@@ -47,7 +47,9 @@ Optional parameters:
   showPrivate       Show private members (default is false)
   showInternal      Show internal members (default is false)
   output            Filename to write the output to (extension is optional, but exclude the extension if you specify multiple formats)
-  tfm               Target Framework to use against NuGet packages or multi-targeted source projects
+  tfm               Target Framework to use against NuGet packages or multi-targeted source projects.
+                    When omitted for project inputs, the generator evaluates all supported target frameworks,
+                    merges the resulting APIs, and annotates APIs that only exist on some TFMs.
   nugetDependencies Dependency package ID patterns to include for /nuget and /compareNuget.
                     Separate with ; for multiple patterns and prefix with ! to exclude a package or subtree.
 ```
@@ -97,6 +99,16 @@ generateomd --source=c:\github\MyLibrary\src\MyLibrary\MyLibrary.csproj
 Select the target framework when the project is multi-targeted:
 ```
 generateomd --source=c:\github\MyLibrary\src\MyLibrary\MyLibrary.csproj --tfm=net8.0
+```
+
+Merge APIs across multiple project files or across all TFMs of a multi-targeted project when `--tfm` is omitted:
+```
+generateomd --source=c:\github\MyLibrary\src\MyLibrary\MyLibrary.csproj;c:\github\MyLibrary\src\MyLibrary.Wpf\MyLibrary.Wpf.csproj
+```
+
+APIs that are only available on some target frameworks are annotated in the output:
+```
+public class Net8OnlyType [TFMs: net8.0]
 ```
 
 Compare the current checkout against a tagged release from the same git repository:

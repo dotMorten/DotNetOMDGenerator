@@ -66,6 +66,16 @@ namespace Generator
 
         private static IEnumerable<ISymbol> GetAllMembers(this INamedTypeSymbol type)
         {
+            var constructors = ApiAvailabilityRegistry.GetConstructors(type).Cast<ISymbol>();
+            var properties = ApiAvailabilityRegistry.GetProperties(type).Cast<ISymbol>();
+            var methods = ApiAvailabilityRegistry.GetMethods(type).Cast<ISymbol>();
+            var events = ApiAvailabilityRegistry.GetEvents(type).Cast<ISymbol>();
+            var fields = ApiAvailabilityRegistry.GetFields(type).Cast<ISymbol>();
+            return constructors.Concat(properties).Concat(methods).Concat(events).Concat(fields);
+        }
+
+        internal static IEnumerable<ISymbol> GetAllMembersRaw(this INamedTypeSymbol type)
+        {
             IEnumerable<ISymbol> members = type.GetMembers().Where(m => !m.IsOverride);
             if (!GeneratorSettings.ShowPrivateMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
@@ -74,6 +84,11 @@ namespace Generator
             return members;
         }
         internal static IEnumerable<INamedTypeSymbol> GetAllNestedTypes(this INamedTypeSymbol type)
+        {
+            return ApiAvailabilityRegistry.GetNestedTypes(type);
+        }
+
+        internal static IEnumerable<INamedTypeSymbol> GetAllNestedTypesRaw(this INamedTypeSymbol type)
         {
             if (type == null) return Enumerable.Empty<INamedTypeSymbol>();
             IEnumerable<INamedTypeSymbol> members = type.GetTypeMembers();
@@ -86,15 +101,34 @@ namespace Generator
 
         public static IEnumerable<IMethodSymbol> GetMethods(this INamedTypeSymbol type)
         {
+            if (type == null)
+                return Enumerable.Empty<IMethodSymbol>();
             if (type.TypeKind == TypeKind.Delegate)
             {
                 if (type.DelegateInvokeMethod != null)
                     return new[] { type.DelegateInvokeMethod };
                 return Enumerable.Empty<IMethodSymbol>();
             }
-            return type.GetAllMembers().OfType<IMethodSymbol>()
+            return ApiAvailabilityRegistry.CollapseDisplayDuplicates(
+                ApiAvailabilityRegistry.GetMethods(type)
                 .Where(m => m.CanBeReferencedByName)
-                .OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))).OrderBy(m=>m.Name);
+                .OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))).OrderBy(m=>m.Name),
+                m => m.ToDisplayString(Generator.Constants.AllFormatWithoutContaining));
+        }
+
+        internal static IEnumerable<IMethodSymbol> GetMethodsRaw(this INamedTypeSymbol type)
+        {
+            if (type == null)
+                return Enumerable.Empty<IMethodSymbol>();
+            if (type.TypeKind == TypeKind.Delegate)
+            {
+                if (type.DelegateInvokeMethod != null)
+                    return new[] { type.DelegateInvokeMethod };
+                return Enumerable.Empty<IMethodSymbol>();
+            }
+            return type.GetAllMembersRaw().OfType<IMethodSymbol>()
+                .Where(m => m.CanBeReferencedByName)
+                .OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))).OrderBy(m => m.Name);
         }
 
         public static IEnumerable<(IMethodSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetMethods(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -181,7 +215,14 @@ namespace Generator
 
         public static IEnumerable<IPropertySymbol> GetProperties(this INamedTypeSymbol type)
         {
-            return type.GetAllMembers().OfType<IPropertySymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m=>m.Name);
+            return ApiAvailabilityRegistry.CollapseDisplayDuplicates(
+                ApiAvailabilityRegistry.GetProperties(type).Where(m => m.CanBeReferencedByName).OrderBy(m=>m.Name),
+                ApiAvailabilityRegistry.GetPropertyDisplayKeyForComparison);
+        }
+
+        internal static IEnumerable<IPropertySymbol> GetPropertiesRaw(this INamedTypeSymbol type)
+        {
+            return type.GetAllMembersRaw().OfType<IPropertySymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
         public static IEnumerable<(IPropertySymbol symbol, bool wasRemoved, bool wasObsoleted)> GetProperties(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -198,7 +239,14 @@ namespace Generator
 
         public static IEnumerable<IFieldSymbol> GetFields(this INamedTypeSymbol type)
         {
-            return type.GetAllMembers().OfType<IFieldSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
+            return ApiAvailabilityRegistry.CollapseDisplayDuplicates(
+                ApiAvailabilityRegistry.GetFields(type).Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name),
+                ApiAvailabilityRegistry.GetFieldDisplayKeyForComparison);
+        }
+
+        internal static IEnumerable<IFieldSymbol> GetFieldsRaw(this INamedTypeSymbol type)
+        {
+            return type.GetAllMembersRaw().OfType<IFieldSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
         public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetFields(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -218,6 +266,13 @@ namespace Generator
 
         public static IEnumerable<INamedTypeSymbol> GetInterfaces(this INamedTypeSymbol type)
         {
+            return ApiAvailabilityRegistry.CollapseDisplayDuplicates(
+                ApiAvailabilityRegistry.GetInterfaces(type),
+                i => i.ToDisplayString(Generator.Constants.AllFormatWithoutContaining));
+        }
+
+        internal static IEnumerable<INamedTypeSymbol> GetInterfacesRaw(this INamedTypeSymbol type)
+        {
             IEnumerable<INamedTypeSymbol> i = type.Interfaces;
             if (!GeneratorSettings.ShowPrivateMembers)
                 i = i.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
@@ -232,9 +287,9 @@ namespace Generator
                 return GetInterfaces(type ?? oldType).Select(p => (p, type == null, p.IsObsolete()));
             var newMembers = GetInterfaces(type);
             var oldMembers = GetInterfaces(oldType);
-            return newMembers.Except(oldMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, false, false))
-                .Union(oldMembers.Except(newMembers, Generator.SymbolNameComparer.Comparer).Select(p => (p, true, false)))
-                .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.SymbolNameComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
+            return newMembers.Except(oldMembers, Generator.AvailabilityAwareTypeComparer.Comparer).Select(p => (p, false, false))
+                .Union(oldMembers.Except(newMembers, Generator.AvailabilityAwareTypeComparer.Comparer).Select(p => (p, true, false)))
+                .Union(newMembers.Where(n => n.IsObsolete() && oldMembers.Any(o => !o.IsObsolete() && Generator.AvailabilityAwareTypeComparer.Comparer.Equals(o, n))).Select(p => (p, false, true))) //Obsoleted
                 .OrderBy(t => t.Item1.Name);
         }
 
@@ -315,7 +370,14 @@ namespace Generator
 
         public static IEnumerable<IEventSymbol> GetEvents(this INamedTypeSymbol type)
         {
-            return type.GetAllMembers().OfType<IEventSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
+            return ApiAvailabilityRegistry.CollapseDisplayDuplicates(
+                ApiAvailabilityRegistry.GetEvents(type).Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name),
+                e => e.ToDisplayString(Generator.Constants.AllFormatWithoutContaining));
+        }
+
+        internal static IEnumerable<IEventSymbol> GetEventsRaw(this INamedTypeSymbol type)
+        {
+            return type.GetAllMembersRaw().OfType<IEventSymbol>().Where(m => m.CanBeReferencedByName).OrderBy(m => m.Name);
         }
 
         public static IEnumerable<(IEventSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetEvents(this INamedTypeSymbol type, INamedTypeSymbol oldType)
@@ -334,7 +396,21 @@ namespace Generator
         {
             if (type.TypeKind == TypeKind.Enum)
                 return Enumerable.Empty<IMethodSymbol>();
-            IEnumerable<IMethodSymbol> members = type.Constructors; //.Where(c=>c.CanBeReferencedByName);
+            IEnumerable<IMethodSymbol> members = ApiAvailabilityRegistry.GetConstructors(type); //.Where(c=>c.CanBeReferencedByName);
+            if (!GeneratorSettings.ShowPrivateMembers)
+                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
+            if (!GeneratorSettings.ShowInternalMembers)
+                members = members.Where(m => m.DeclaredAccessibility != Accessibility.Internal);
+            return ApiAvailabilityRegistry.CollapseDisplayDuplicates(
+                members.OrderBy(m => string.Join(',', m.Parameters.Select(p => p.Name))),
+                m => m.ToDisplayString(Generator.Constants.AllFormatWithoutContaining));
+        }
+
+        internal static IEnumerable<IMethodSymbol> GetConstructorsRaw(this INamedTypeSymbol type)
+        {
+            if (type.TypeKind == TypeKind.Enum)
+                return Enumerable.Empty<IMethodSymbol>();
+            IEnumerable<IMethodSymbol> members = type.Constructors;
             if (!GeneratorSettings.ShowPrivateMembers)
                 members = members.Where(m => m.DeclaredAccessibility != Accessibility.Private && m.DeclaredAccessibility != Accessibility.ProtectedAndFriend);
             if (!GeneratorSettings.ShowInternalMembers)
@@ -395,7 +471,16 @@ namespace Generator
         {
             if (type.TypeKind != TypeKind.Enum)
                 return new IFieldSymbol[] { };
-            return type.GetAllMembers().OfType<IFieldSymbol>().OrderBy(f => f.ConstantValue);
+            return ApiAvailabilityRegistry.CollapseDisplayDuplicates(
+                ApiAvailabilityRegistry.GetEnums(type).OrderBy(f => f.ConstantValue),
+                ApiAvailabilityRegistry.GetFieldDisplayKeyForComparison);
+        }
+
+        internal static IEnumerable<IFieldSymbol> GetEnumsRaw(this INamedTypeSymbol type)
+        {
+            if (type.TypeKind != TypeKind.Enum)
+                return new IFieldSymbol[] { };
+            return type.GetAllMembersRaw().OfType<IFieldSymbol>().OrderBy(f => f.ConstantValue);
         }
 
         public static IEnumerable<(IFieldSymbol symbol, bool wasRemoved, bool wasObsoleted)> GetEnums(this INamedTypeSymbol type, INamedTypeSymbol oldType)

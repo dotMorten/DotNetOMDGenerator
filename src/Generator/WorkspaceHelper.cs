@@ -24,6 +24,7 @@ namespace Generator
 
         internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null, string targetFramework = null)
         {
+            ApiAvailabilityRegistry.Reset();
             var compilation = await CreateCompilationAsync(paths, assemblies, preprocessors, filters, referenceAssemblies, targetFramework);
             Console.WriteLine("Processing types...");
             var symbols = GetSymbols(compilation);
@@ -44,10 +45,17 @@ namespace Generator
 
         private List<INamedTypeSymbol> GetSymbols(IReadOnlyList<CompilationInput> compilations)
         {
-            var symbols = new List<INamedTypeSymbol>();
-            foreach (var compilation in compilations)
-                symbols.AddRange(GetSymbols(compilation.Compilation, compilation.MetadataReferences));
-            return symbols.OrderBy(t => t.Name).OrderBy(t => t.GetFullNamespace()).ToList();
+            return ApiAvailabilityRegistry
+                .MergeTypes(compilations, (CompilationInput input) => GetSymbols(input, compilations))
+                .ToList();
+        }
+
+        private IEnumerable<INamedTypeSymbol> GetSymbols(CompilationInput compilationInput, IReadOnlyList<CompilationInput> allCompilations)
+        {
+            var metadata = compilationInput.MetadataReferences.Any()
+                ? compilationInput.MetadataReferences
+                : allCompilations.SelectMany(c => c.MetadataReferences).Distinct().ToList();
+            return GetSymbols(compilationInput.Compilation, metadata);
         }
 
         private List<INamedTypeSymbol> GetSymbols(Compilation compilation, IEnumerable<MetadataReference> assemblies)
@@ -127,7 +135,7 @@ namespace Generator
             if (nonProjectPaths.Length > 0)
             {
                 var adhocCompilation = await CreateAdhocCompilationAsync(nonProjectPaths, preprocessors, filters, assemblyReferences.Concat(supportReferences)).ConfigureAwait(false);
-                compilationInputs.Add(new CompilationInput(adhocCompilation, new List<MetadataReference>()));
+                compilationInputs.Add(new CompilationInput(adhocCompilation, new List<MetadataReference>(), null));
             }
 
             if (projectPaths.Length > 0)
@@ -180,16 +188,20 @@ namespace Generator
             var compilationInputs = new List<CompilationInput>();
             foreach (var projectPath in projectPaths)
             {
-                await ValidateTargetFrameworkAsync(projectPath, targetFramework).ConfigureAwait(false);
-                Console.WriteLine("Compiling...");
-                var projectEvaluation = await LoadProjectEvaluationAsync(projectPath, targetFramework).ConfigureAwait(false);
-                var compilation = await CreateAdhocCompilationAsync(
-                    projectEvaluation.CompileFiles,
-                    projectEvaluation.PreprocessorSymbols.Concat(preprocessors ?? Array.Empty<string>()),
-                    null,
-                    projectEvaluation.ReferencePaths.Select(path => MetadataReference.CreateFromFile(path)).Concat(references),
-                    projectEvaluation.LangVersion).ConfigureAwait(false);
-                compilationInputs.Add(new CompilationInput(compilation, new List<MetadataReference>()));
+                var targetFrameworks = await GetValidatedTargetFrameworksAsync(projectPath, targetFramework).ConfigureAwait(false);
+                await RestoreProjectAsync(projectPath).ConfigureAwait(false);
+                foreach (var resolvedTargetFramework in targetFrameworks)
+                {
+                    Console.WriteLine("Compiling...");
+                    var projectEvaluation = await LoadProjectEvaluationAsync(projectPath, resolvedTargetFramework).ConfigureAwait(false);
+                    var compilation = await CreateAdhocCompilationAsync(
+                        projectEvaluation.CompileFiles,
+                        projectEvaluation.PreprocessorSymbols.Concat(preprocessors ?? Array.Empty<string>()),
+                        null,
+                        projectEvaluation.ReferencePaths.Select(path => MetadataReference.CreateFromFile(path)).Concat(references),
+                        projectEvaluation.LangVersion).ConfigureAwait(false);
+                    compilationInputs.Add(new CompilationInput(compilation, new List<MetadataReference>(), projectEvaluation.TargetFramework));
+                }
             }
 
             return compilationInputs;
@@ -210,7 +222,7 @@ namespace Generator
 
             Console.WriteLine("Compiling...");
             var compilation = await project.GetCompilationAsync().ConfigureAwait(false);
-            return new CompilationInput(compilation, assemblies.ToList());
+            return new CompilationInput(compilation, assemblies.ToList(), null);
         }
 
         private static List<MetadataReference> ResolveMetadataReferences(IEnumerable<string> assemblies)
@@ -267,7 +279,29 @@ namespace Generator
 
         private static bool IsProjectFile(string path) => path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
 
-        private static async Task ValidateTargetFrameworkAsync(string projectPath, string targetFramework)
+        private static async Task<string[]> GetValidatedTargetFrameworksAsync(string projectPath, string targetFramework)
+        {
+            var targetFrameworks = await GetProjectTargetFrameworksAsync(projectPath).ConfigureAwait(false);
+            if (targetFrameworks.Length == 0)
+                return new[] { targetFramework };
+
+            if (targetFrameworks.Length == 1)
+            {
+                if (targetFrameworks.Length == 1 && !string.IsNullOrWhiteSpace(targetFramework) && !targetFrameworks[0].Equals(targetFramework, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException($"Project '{projectPath}' targets '{targetFrameworks[0]}', not '{targetFramework}'.");
+                return targetFrameworks;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetFramework))
+                return targetFrameworks;
+
+            if (!targetFrameworks.Contains(targetFramework, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentException($"Project '{projectPath}' does not target '{targetFramework}'.");
+
+            return new[] { targetFramework };
+        }
+
+        private static async Task<string[]> GetProjectTargetFrameworksAsync(string projectPath)
         {
             var output = await RunDotNetAsync(new[]
             {
@@ -281,7 +315,7 @@ namespace Generator
 
             using var document = JsonDocument.Parse(ExtractJson(output));
             var properties = document.RootElement.GetProperty("Properties");
-            var targetFrameworks = new[]
+            return new[]
                 {
                     properties.TryGetProperty("TargetFramework", out var targetFrameworkProperty) ? targetFrameworkProperty.GetString() : null,
                     properties.TryGetProperty("TargetFrameworks", out var targetFrameworksProperty) ? targetFrameworksProperty.GetString() : null
@@ -291,25 +325,10 @@ namespace Generator
                 .Select(t => t.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-
-            if (targetFrameworks.Length <= 1)
-            {
-                if (targetFrameworks.Length == 1 && !string.IsNullOrWhiteSpace(targetFramework) && !targetFrameworks[0].Equals(targetFramework, StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException($"Project '{projectPath}' targets '{targetFrameworks[0]}', not '{targetFramework}'.");
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(targetFramework))
-                throw new ArgumentException($"Project '{projectPath}' targets multiple frameworks. Specify /tfm.");
-
-            if (!targetFrameworks.Contains(targetFramework, StringComparer.OrdinalIgnoreCase))
-                throw new ArgumentException($"Project '{projectPath}' does not target '{targetFramework}'.");
         }
 
         private static async Task<ProjectEvaluation> LoadProjectEvaluationAsync(string projectPath, string targetFramework)
         {
-            await RestoreProjectAsync(projectPath, targetFramework).ConfigureAwait(false);
-
             var arguments = new List<string>
             {
                 "msbuild",
@@ -356,14 +375,15 @@ namespace Generator
                 compileFiles,
                 referencePaths,
                 preprocessorSymbols,
-                properties.TryGetProperty("LangVersion", out var langVersion) ? langVersion.GetString() : null);
+                properties.TryGetProperty("LangVersion", out var langVersion) ? langVersion.GetString() : null,
+                properties.TryGetProperty("TargetFramework", out var resolvedTargetFramework) && !string.IsNullOrWhiteSpace(resolvedTargetFramework.GetString())
+                    ? resolvedTargetFramework.GetString()
+                    : targetFramework);
         }
 
-        private static async Task RestoreProjectAsync(string projectPath, string targetFramework)
+        private static async Task RestoreProjectAsync(string projectPath)
         {
             var arguments = new List<string> { "restore", projectPath, "--verbosity", "quiet" };
-            if (!string.IsNullOrWhiteSpace(targetFramework))
-                arguments.Add($"-p:TargetFramework={targetFramework}");
             await RunDotNetAsync(arguments).ConfigureAwait(false);
         }
 
@@ -415,25 +435,29 @@ namespace Generator
 
         internal sealed class CompilationInput
         {
-            internal CompilationInput(Compilation compilation, List<MetadataReference> metadataReferences)
+            internal CompilationInput(Compilation compilation, List<MetadataReference> metadataReferences, string targetFramework)
             {
                 Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
                 MetadataReferences = metadataReferences ?? throw new ArgumentNullException(nameof(metadataReferences));
+                TargetFramework = targetFramework;
             }
 
             internal Compilation Compilation { get; }
 
             internal List<MetadataReference> MetadataReferences { get; }
+
+            internal string TargetFramework { get; }
         }
 
         private sealed class ProjectEvaluation
         {
-            internal ProjectEvaluation(string[] compileFiles, string[] referencePaths, string[] preprocessorSymbols, string langVersion)
+            internal ProjectEvaluation(string[] compileFiles, string[] referencePaths, string[] preprocessorSymbols, string langVersion, string targetFramework)
             {
                 CompileFiles = compileFiles;
                 ReferencePaths = referencePaths;
                 PreprocessorSymbols = preprocessorSymbols;
                 LangVersion = langVersion;
+                TargetFramework = targetFramework;
             }
 
             internal string[] CompileFiles { get; }
@@ -443,6 +467,8 @@ namespace Generator
             internal string[] PreprocessorSymbols { get; }
 
             internal string LangVersion { get; }
+
+            internal string TargetFramework { get; }
         }
 
         private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex[] filters)
@@ -554,6 +580,7 @@ namespace Generator
 
         internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null, string targetFramework = null)
         {
+            ApiAvailabilityRegistry.Reset();
             var oldCompilation = await CreateCompilationAsync(oldPaths, oldAssemblies, preprocessors, filters, referenceAssemblies, targetFramework);
             var newCompilation = await CreateCompilationAsync(newPaths, newAssemblies, preprocessors, filters, referenceAssemblies, targetFramework);
             var oldSymbols = GetSymbols(oldCompilation);
@@ -638,6 +665,9 @@ namespace Generator
                 if (x.GetDeclarationKind() != y.GetDeclarationKind())
                     return false;
 
+                if (!ApiAvailabilityRegistry.AvailabilityEquals(x, y))
+                    return false;
+
                 var ifacesNew = x.GetInterfaces();
                 var ifacesOld = y.GetInterfaces();
                 if (ifacesNew.Count() != ifacesOld.Count()) return false;
@@ -666,8 +696,8 @@ namespace Generator
                 var fieldsOld = y.TypeKind == TypeKind.Enum ? y.GetEnums() : y.GetFields();
                 if (fieldsNew.Count() != fieldsOld.Count()) return false;
 
-                if (ifacesNew.Except(ifacesOld, SymbolNameComparer.Comparer).Any() ||
-                    ifacesOld.Except(ifacesNew, SymbolNameComparer.Comparer).Any())
+                if (ifacesNew.Except(ifacesOld, AvailabilityAwareTypeComparer.Comparer).Any() ||
+                    ifacesOld.Except(ifacesNew, AvailabilityAwareTypeComparer.Comparer).Any())
                     return false;
 
                 if (propsNew.Except(propsOld, PropertyComparer.Comparer).Any() ||
@@ -717,11 +747,20 @@ namespace Generator
                 (SymbolDisplayParameterOptions)255, SymbolDisplayPropertyStyle.NameOnly,
                 (SymbolDisplayLocalOptions)255, (SymbolDisplayKindOptions)255, (SymbolDisplayMiscellaneousOptions)255);
         }
+        internal class AvailabilityAwareTypeComparer : IEqualityComparer<INamedTypeSymbol>
+        {
+            internal static AvailabilityAwareTypeComparer Comparer = new AvailabilityAwareTypeComparer();
+            public bool Equals(INamedTypeSymbol x, INamedTypeSymbol y) =>
+                x.ToDisplayString().Equals(y.ToDisplayString()) && ApiAvailabilityRegistry.AvailabilityEquals(x, y);
+            public int GetHashCode(INamedTypeSymbol obj) => obj.ToDisplayString().GetHashCode();
+        }
         internal class PropertyComparer : IEqualityComparer<IPropertySymbol>
         {
             internal static PropertyComparer Comparer = new PropertyComparer();
             public bool Equals(IPropertySymbol x, IPropertySymbol y)
             {
+                if (!ApiAvailabilityRegistry.AvailabilityEquals(x, y))
+                    return false;
                 if (!x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat)))
                     return false;
                 IMethodSymbol gx = (x.GetMethod?.DeclaredAccessibility == Accessibility.Public ||
@@ -748,21 +787,27 @@ namespace Generator
         internal class MethodComparer : IEqualityComparer<IMethodSymbol>
         {
             public static MethodComparer Comparer = new MethodComparer();
-            public bool Equals(IMethodSymbol x, IMethodSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public bool Equals(IMethodSymbol x, IMethodSymbol y) =>
+                x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat)) &&
+                ApiAvailabilityRegistry.AvailabilityEquals(x, y);
             public int GetHashCode(IMethodSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
 
         internal class EventComparer : IEqualityComparer<IEventSymbol>
         {
             public static EventComparer Comparer = new EventComparer();
-            public bool Equals(IEventSymbol x, IEventSymbol y) => x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat));
+            public bool Equals(IEventSymbol x, IEventSymbol y) =>
+                x.ToDisplayString(Constants.AllFormat).Equals(y.ToDisplayString(Constants.AllFormat)) &&
+                ApiAvailabilityRegistry.AvailabilityEquals(x, y);
             public int GetHashCode(IEventSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
         }
 
         internal class FieldComparer : IEqualityComparer<IFieldSymbol>
         {
             public static FieldComparer Comparer = new FieldComparer();
-            public bool Equals(IFieldSymbol x, IFieldSymbol y) => FormatField(x).Equals(FormatField(y));
+            public bool Equals(IFieldSymbol x, IFieldSymbol y) =>
+                FormatField(x).Equals(FormatField(y)) &&
+                ApiAvailabilityRegistry.AvailabilityEquals(x, y);
             public int GetHashCode(IFieldSymbol obj) => obj.ToDisplayString(Constants.AllFormat).GetHashCode();
             private static string FormatField(IFieldSymbol x)
             {

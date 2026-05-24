@@ -117,6 +117,78 @@ public sealed class GeneratorOutputTests
         public class Net9OnlyType { }
         """;
 
+    private const string SharedSource = """
+        namespace SampleNamespace;
+
+        public class SharedType
+        {
+            public void SharedMethod() { }
+        }
+        """;
+
+    private const string Net8MemberSource = """
+        namespace SampleNamespace;
+
+        public partial class SharedType
+        {
+            public void Net8OnlyMethod() { }
+        }
+        """;
+
+    private const string Net9MemberSource = """
+        namespace SampleNamespace;
+
+        public partial class SharedType
+        {
+            public void Net9OnlyMethod() { }
+        }
+        """;
+
+    private const string AnalyzerSource = """
+        namespace SampleNamespace.Analyzers
+        {
+            public class SampleAnalyzer { }
+        }
+        """;
+
+    private const string PlatformATemplateSource = """
+        namespace PlatformA
+        {
+            public class Template { }
+        }
+        """;
+
+    private const string PlatformBTemplateSource = """
+        namespace PlatformB
+        {
+            public class Template { }
+        }
+        """;
+
+    private const string PlatformAViewSource = """
+        using PlatformA;
+
+        namespace SampleNamespace
+        {
+            public class PlatformSpecificView
+            {
+                public Template ItemTemplate { get; set; }
+            }
+        }
+        """;
+
+    private const string PlatformBViewSource = """
+        using PlatformB;
+
+        namespace SampleNamespace
+        {
+            public class PlatformSpecificView
+            {
+                public Template ItemTemplate { get; set; }
+            }
+        }
+        """;
+
     [TestMethod]
     public async Task MarkdownOutput_IdentifiesAllSupportedDeclarationKinds()
     {
@@ -403,6 +475,243 @@ public sealed class GeneratorOutputTests
 
         StringAssert.Contains(markdown, "<b>public NewMethod();</b>");
         StringAssert.Contains(markdown, "<strike>public OldMethod();</strike>");
+    }
+
+    [TestMethod]
+    public async Task MarkdownOutput_RestoresProjectsWithoutForcingReferencedProjectTargetFramework()
+    {
+        using var workspace = new TestWorkspace();
+        var rootDirectory = workspace.CreateDirectory("analyzer-restore");
+        var sourceProjectDirectory = Path.Combine(rootDirectory, "src");
+        var analyzerProjectDirectory = Path.Combine(rootDirectory, "analyzers");
+        Directory.CreateDirectory(sourceProjectDirectory);
+        Directory.CreateDirectory(analyzerProjectDirectory);
+
+        workspace.WriteSource(sourceProjectDirectory, "Types.cs", SharedSource);
+        workspace.WriteSource(analyzerProjectDirectory, "Analyzer.cs", AnalyzerSource);
+
+        var sourceProjectPath = Path.Combine(sourceProjectDirectory, "Sample.csproj");
+        workspace.WriteSource(sourceProjectDirectory, "Sample.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <ProjectReference Include="..\analyzers\Analyzer.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        workspace.WriteSource(analyzerProjectDirectory, "Analyzer.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>netstandard2.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var markdown = await GenerateCliMarkdownAsync(workspace, "project-analyzer-output", $"/source={sourceProjectPath}");
+
+        StringAssert.Contains(markdown, "public class SharedType");
+    }
+
+    [TestMethod]
+    public async Task MarkdownOutput_MergesApisAcrossProjectsWhenTargetFrameworkIsOmitted()
+    {
+        using var workspace = new TestWorkspace();
+        var rootDirectory = workspace.CreateDirectory("merged-projects");
+
+        var net8ProjectDirectory = Path.Combine(rootDirectory, "Net8");
+        var net9ProjectDirectory = Path.Combine(rootDirectory, "Net9");
+        Directory.CreateDirectory(net8ProjectDirectory);
+        Directory.CreateDirectory(net9ProjectDirectory);
+
+        workspace.WriteSource(net8ProjectDirectory, "Shared.cs", SharedSource);
+        workspace.WriteSource(net8ProjectDirectory, "Net8Only.cs", Net8Source);
+        workspace.WriteSource(net9ProjectDirectory, "Shared.cs", SharedSource);
+        workspace.WriteSource(net9ProjectDirectory, "Net9Only.cs", Net9Source);
+
+        var net8ProjectPath = Path.Combine(net8ProjectDirectory, "Net8.csproj");
+        var net9ProjectPath = Path.Combine(net9ProjectDirectory, "Net9.csproj");
+
+        workspace.WriteSource(net8ProjectDirectory, "Net8.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        workspace.WriteSource(net9ProjectDirectory, "Net9.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "merged-project-output",
+            $"/source={net8ProjectPath};{net9ProjectPath}");
+
+        StringAssert.Contains(markdown, "public class SharedType");
+        Assert.IsFalse(markdown.Contains("SharedType [TFMs:", StringComparison.Ordinal));
+        StringAssert.Contains(markdown, "public class Net8OnlyType [TFMs: net8.0]");
+        StringAssert.Contains(markdown, "public class Net9OnlyType [TFMs: net9.0]");
+    }
+
+    [TestMethod]
+    public async Task MarkdownOutput_SuppressesMemberAvailabilityWhenTypeHasSameTargetFrameworks()
+    {
+        using var workspace = new TestWorkspace();
+        var rootDirectory = workspace.CreateDirectory("limited-type-projects");
+
+        var net8ProjectDirectory = Path.Combine(rootDirectory, "Net8");
+        var net9ProjectDirectory = Path.Combine(rootDirectory, "Net9");
+        Directory.CreateDirectory(net8ProjectDirectory);
+        Directory.CreateDirectory(net9ProjectDirectory);
+
+        workspace.WriteSource(net8ProjectDirectory, "Net8Only.cs", """
+            namespace SampleNamespace;
+
+            public class Net8OnlyType
+            {
+                public void OnlyOnNet8() { }
+            }
+            """);
+        workspace.WriteSource(net9ProjectDirectory, "Shared.cs", SharedSource);
+
+        var net8ProjectPath = Path.Combine(net8ProjectDirectory, "Net8.csproj");
+        var net9ProjectPath = Path.Combine(net9ProjectDirectory, "Net9.csproj");
+
+        workspace.WriteSource(net8ProjectDirectory, "Net8.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        workspace.WriteSource(net9ProjectDirectory, "Net9.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net9.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "limited-type-output",
+            $"/source={net8ProjectPath};{net9ProjectPath}");
+
+        StringAssert.Contains(markdown, "public class Net8OnlyType [TFMs: net8.0]");
+        StringAssert.Contains(markdown, "public OnlyOnNet8();");
+        Assert.IsFalse(markdown.Contains("OnlyOnNet8(); [TFMs: net8.0]", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task MarkdownOutput_DeduplicatesRenderedMembersWhenProjectsShareTheSameTargetFramework()
+    {
+        using var workspace = new TestWorkspace();
+        var rootDirectory = workspace.CreateDirectory("same-tfm-rendered-duplicates");
+
+        var projectADirectory = Path.Combine(rootDirectory, "ProjectA");
+        var projectBDirectory = Path.Combine(rootDirectory, "ProjectB");
+        Directory.CreateDirectory(projectADirectory);
+        Directory.CreateDirectory(projectBDirectory);
+
+        workspace.WriteSource(projectADirectory, "Template.cs", PlatformATemplateSource);
+        workspace.WriteSource(projectADirectory, "View.cs", PlatformAViewSource);
+        workspace.WriteSource(projectBDirectory, "Template.cs", PlatformBTemplateSource);
+        workspace.WriteSource(projectBDirectory, "View.cs", PlatformBViewSource);
+
+        var projectAPath = Path.Combine(projectADirectory, "ProjectA.csproj");
+        var projectBPath = Path.Combine(projectBDirectory, "ProjectB.csproj");
+
+        workspace.WriteSource(projectADirectory, "ProjectA.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>net8.0</TargetFrameworks>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        workspace.WriteSource(projectBDirectory, "ProjectB.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "same-tfm-rendered-duplicates-output",
+            $"/source={projectAPath};{projectBPath}");
+
+        Assert.AreEqual(1, Regex.Matches(markdown, "public Template ItemTemplate \\{ get; set; \\}").Count);
+        Assert.IsFalse(markdown.Contains("[TFMs:", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task MarkdownDiffOutput_ReportsAvailabilityChangesAcrossTargetFrameworks()
+    {
+        using var workspace = new TestWorkspace();
+        var oldDirectory = workspace.CreateDirectory("old-multitfm");
+        var newDirectory = workspace.CreateDirectory("new-multitfm");
+
+        workspace.WriteSource(oldDirectory, "Shared.cs", SharedSource);
+        workspace.WriteSource(oldDirectory, "Net8OnlyMember.cs", Net8MemberSource);
+        workspace.WriteSource(newDirectory, "Shared.cs", SharedSource);
+        workspace.WriteSource(newDirectory, "Net8OnlyMember.cs", Net8MemberSource);
+        workspace.WriteSource(newDirectory, "Net9OnlyMember.cs", Net9MemberSource);
+
+        var oldProjectPath = Path.Combine(oldDirectory, "Sample.csproj");
+        var newProjectPath = Path.Combine(newDirectory, "Sample.csproj");
+
+        const string MultiTargetProject = """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Include="Shared.cs" />
+                <Compile Include="Net8OnlyMember.cs" />
+              </ItemGroup>
+              <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+                <Compile Include="Net9OnlyMember.cs" />
+              </ItemGroup>
+            </Project>
+            """;
+
+        workspace.WriteSource(oldDirectory, "Sample.csproj", MultiTargetProject.Replace("<Compile Include=\"Net9OnlyMember.cs\" />", string.Empty));
+        workspace.WriteSource(newDirectory, "Sample.csproj", MultiTargetProject);
+
+        var markdown = await GenerateOutputAsync(workspace, "availability-diff", newProjectPath, oldProjectPath, new MarkdownGenerator(), ".md");
+
+        StringAssert.Contains(markdown, "<b>public Net9OnlyMethod(); [TFMs: net9.0]</b>");
+        Assert.IsFalse(markdown.Contains("Net8OnlyMethod() [TFMs:", StringComparison.Ordinal));
     }
 
     private static async Task<string> GenerateMarkdownAsync(string source)

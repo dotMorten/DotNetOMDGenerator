@@ -225,6 +225,7 @@ namespace Generator.Generators
             if (!isTypeNew && !isTypeRemoved) sw.Write($"<span class='existing'>");
             sw.Write(System.Web.HttpUtility.HtmlEncode(type.Name));
             if (!isTypeNew && !isTypeRemoved) sw.Write("</span>");
+            sw.Write(System.Web.HttpUtility.HtmlEncode(ApiAvailabilityRegistry.GetAvailabilityLabel(type)));
             if (type.BaseType != null && (type.BaseType.Name != "Object" || type.BaseType.ToDisplayString() != oldType?.BaseType.ToDisplayString()) && !isEnum)
             {
                 if (oldType == null || type.BaseType.ToDisplayString() != oldType.BaseType.ToDisplayString())
@@ -291,6 +292,7 @@ namespace Generator.Generators
                         sw.Write(", ");
                     if (iface.wasRemoved) sw.Write("<span class='memberRemoved'>");
                     sw.Write(FormatType(iface.symbol));
+                    sw.Write(System.Web.HttpUtility.HtmlEncode(ApiAvailabilityRegistry.GetAvailabilityLabel(iface.symbol)));
                     if (iface.wasRemoved) sw.Write("</span>");
                     i++;
                 }
@@ -477,7 +479,7 @@ namespace Generator.Generators
             {
                 name += " : " + FormatType(f.Type);
             }
-            return name;
+            return name + System.Web.HttpUtility.HtmlEncode(ApiAvailabilityRegistry.GetAvailabilityLabel(member, suppressIfSameAsContainingType: true));
         }
 
         private static string Briefify(ISymbol symbol, string content = null)
