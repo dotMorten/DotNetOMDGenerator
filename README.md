@@ -134,11 +134,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -151,12 +146,12 @@ jobs:
         shell: bash
         run: |
           generateomd \
-            /source=src/MyLibrary \
-            /gitRepo=${{ github.server_url }}/${{ github.repository }} \
-            /sourceRef=${{ github.event.pull_request.head.sha }} \
-            /compareRef=${{ github.event.pull_request.base.sha }} \
-            /format=md \
-            /output=api-diff
+            --source=src/MyLibrary/ \
+            --gitRepo=${{ github.server_url }}/${{ github.repository }} \
+            --sourceRef=${{ github.event.pull_request.head.sha }} \
+            --compareRef=${{ github.event.pull_request.base.sha }} \
+            --format=md \
+            --output=api-diff
 
       - name: Check whether API changes were found
         id: api_diff
