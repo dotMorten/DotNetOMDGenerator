@@ -116,7 +116,8 @@ In the workflow below:
 - `/source` is the repo-relative path to the C# source you want to analyze.
 - `sourceRef` is the PR head SHA.
 - `compareRef` is the PR base SHA.
-- The comment is only created or updated when the generated markdown contains at least one changed namespace/type.
+- When the diff becomes empty again, the workflow updates its existing comment to say so.
+- If the workflow has never commented on the PR before and there are no API changes, it does nothing.
 
 ```yaml
 name: PR API diff
@@ -164,22 +165,17 @@ jobs:
           fi
 
       - name: Create or update PR comment
-        if: steps.api_diff.outputs.has_changes == 'true'
         uses: actions/github-script@v7
         env:
           COMMENT_MARKER: <!-- dotnet-omd-api-diff -->
+          HAS_CHANGES: ${{ steps.api_diff.outputs.has_changes }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const marker = process.env.COMMENT_MARKER;
+            const hasChanges = process.env.HAS_CHANGES === 'true';
             const diff = fs.readFileSync('api-diff.md', 'utf8').trim();
-            const body = [
-              marker,
-              '## API changes',
-              '',
-              diff
-            ].join('\n');
 
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
@@ -193,6 +189,24 @@ jobs:
 
             const existing = comments.find(comment =>
               comment.user.type === 'Bot' && comment.body.includes(marker));
+
+            if (!hasChanges && !existing) {
+              return;
+            }
+
+            const body = hasChanges
+              ? [
+                  marker,
+                  '## API changes',
+                  '',
+                  diff
+                ].join('\n')
+              : [
+                  marker,
+                  '## API changes',
+                  '',
+                  'No API changes are currently detected in this pull request.'
+                ].join('\n');
 
             if (existing) {
               await github.rest.issues.updateComment({
@@ -210,6 +224,8 @@ jobs:
               });
             }
 ```
+
+If you prefer to remove the old bot comment instead of replacing it with a "no API changes" message, change the `!hasChanges` branch to call `github.rest.issues.deleteComment(...)` when `existing` is found.
 
 If you want the comment to cover multiple source roots, separate them with semicolons in `/source`, for example `/source=src/MyLibrary;src/MyOtherLibrary`.
 
