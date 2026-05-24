@@ -59,14 +59,22 @@ namespace Generator
             var tempPaths = new List<string>();
             var repository = await ResolveRepositoryAsync(source, gitRepo, !string.IsNullOrWhiteSpace(sourceRef), tempPaths).ConfigureAwait(false);
             var pathSpecs = GetPathSpecs(source, repository.WorkingTreeRoot, allowRepoRelativePaths: !string.IsNullOrWhiteSpace(sourceRef));
+            var materializeRepositoryRoot = source.Any(IsProjectFilePath);
+            var archivePathSpecs = materializeRepositoryRoot ? Array.Empty<string>() : pathSpecs;
             var resolvedSource = source;
             var resolvedCompareSource = compareSource;
 
             if (!string.IsNullOrWhiteSpace(sourceRef))
-                resolvedSource = new[] { await MaterializeRefAsync(repository.GitDirectory, sourceRef, pathSpecs, tempPaths).ConfigureAwait(false) };
+            {
+                var materializedSource = await MaterializeRefAsync(repository.GitDirectory, sourceRef, archivePathSpecs, tempPaths).ConfigureAwait(false);
+                resolvedSource = materializeRepositoryRoot ? MapMaterializedPaths(materializedSource, pathSpecs) : new[] { materializedSource };
+            }
 
             if (!string.IsNullOrWhiteSpace(compareRef))
-                resolvedCompareSource = new[] { await MaterializeRefAsync(repository.GitDirectory, compareRef, pathSpecs, tempPaths).ConfigureAwait(false) };
+            {
+                var materializedCompare = await MaterializeRefAsync(repository.GitDirectory, compareRef, archivePathSpecs, tempPaths).ConfigureAwait(false);
+                resolvedCompareSource = materializeRepositoryRoot ? MapMaterializedPaths(materializedCompare, pathSpecs) : new[] { materializedCompare };
+            }
 
             return new GitResolvedSources(resolvedSource, resolvedCompareSource, tempPaths);
         }
@@ -255,6 +263,13 @@ namespace Generator
             Directory.CreateDirectory(path);
             return path;
         }
+
+        private static string[] MapMaterializedPaths(string materializedRoot, IEnumerable<string> pathSpecs)
+        {
+            return pathSpecs.Select(pathSpec => Path.Combine(materializedRoot, pathSpec.Replace('/', Path.DirectorySeparatorChar))).ToArray();
+        }
+
+        private static bool IsProjectFilePath(string path) => path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
 
         private static string NormalizePath(string path) => path.Replace('\\', '/').Trim('/');
 

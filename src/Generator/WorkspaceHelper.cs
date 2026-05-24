@@ -1,10 +1,13 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -19,11 +22,11 @@ namespace Generator
             this.generators = generators;
         }
 
-        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null)
+        internal async Task Process(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null, string targetFramework = null)
         {
-            var compilation = await CreateCompilationAsync(paths, assemblies, preprocessors, filters, referenceAssemblies);
+            var compilation = await CreateCompilationAsync(paths, assemblies, preprocessors, filters, referenceAssemblies, targetFramework);
             Console.WriteLine("Processing types...");
-            var symbols = GetSymbols(compilation.compilation, compilation.metadata);
+            var symbols = GetSymbols(compilation);
 
             foreach (var generator in generators)
             {
@@ -37,6 +40,14 @@ namespace Generator
                 generator.Complete();
             }
             Console.WriteLine("Complete");
+        }
+
+        private List<INamedTypeSymbol> GetSymbols(IReadOnlyList<CompilationInput> compilations)
+        {
+            var symbols = new List<INamedTypeSymbol>();
+            foreach (var compilation in compilations)
+                symbols.AddRange(GetSymbols(compilation.Compilation, compilation.MetadataReferences));
+            return symbols.OrderBy(t => t.Name).OrderBy(t => t.GetFullNamespace()).ToList();
         }
 
         private List<INamedTypeSymbol> GetSymbols(Compilation compilation, IEnumerable<MetadataReference> assemblies)
@@ -62,7 +73,6 @@ namespace Generator
             {
                 symbols.AddRange(GetTypes(ns, assemblies));
             }
-            symbols = symbols.OrderBy(t => t.Name).OrderBy(t => t.GetFullNamespace()).ToList();
             return symbols;
         }
 
@@ -104,102 +114,335 @@ namespace Generator
             }
         }
 
-        internal async Task<(Compilation compilation, List<MetadataReference> metadata)> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null)
+        internal async Task<IReadOnlyList<CompilationInput>> CreateCompilationAsync(IEnumerable<string> paths, IEnumerable<string> assemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string targetFramework = null)
         {
             Console.WriteLine("Creating workspace...");
+            var compilationInputs = new List<CompilationInput>();
+            var sourcePaths = paths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToArray() ?? Array.Empty<string>();
+            var projectPaths = sourcePaths.Where(IsProjectFile).ToArray();
+            var nonProjectPaths = sourcePaths.Where(p => !IsProjectFile(p)).ToArray();
+            var assemblyReferences = ResolveMetadataReferences(assemblies);
+            var supportReferences = ResolveMetadataReferences(referenceAssemblies);
 
+            if (nonProjectPaths.Length > 0)
+            {
+                var adhocCompilation = await CreateAdhocCompilationAsync(nonProjectPaths, preprocessors, filters, assemblyReferences.Concat(supportReferences)).ConfigureAwait(false);
+                compilationInputs.Add(new CompilationInput(adhocCompilation, new List<MetadataReference>()));
+            }
+
+            if (projectPaths.Length > 0)
+            {
+                var projectCompilations = await LoadProjectCompilationsAsync(projectPaths, assemblyReferences.Concat(supportReferences), targetFramework, preprocessors).ConfigureAwait(false);
+                compilationInputs.AddRange(projectCompilations);
+            }
+
+            if (assemblyReferences.Count > 0)
+                compilationInputs.Add(await CreateAssemblyCompilationAsync(assemblyReferences, supportReferences, preprocessors).ConfigureAwait(false));
+
+            return compilationInputs;
+        }
+
+        private async Task<Compilation> CreateAdhocCompilationAsync(IEnumerable<string> paths, IEnumerable<string> preprocessors, Regex[] filters, IEnumerable<MetadataReference> metadataReferences, string langVersion = null)
+        {
             var ws = new AdhocWorkspace();
             var solutionInfo = SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Default);
             ws.AddSolution(solutionInfo);
-            var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Default, "CSharpExample", "CSharpExample", "C#");
+            var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Default, "CSharpExample", "CSharpExample", LanguageNames.CSharp);
             ws.AddProject(projectInfo);
-            if (paths != null)
+            foreach (var path in paths)
             {
-                foreach (var path in paths)
+                if (path.StartsWith("http://") || path.StartsWith("https://"))
                 {
-                    if (path.StartsWith("http://") || path.StartsWith("https://"))
-                    {
-                        await DownloadDocumentsAsync(path, ws, projectInfo.Id, filters).ConfigureAwait(false);
-                    }
-                    else if (path.EndsWith(".zip"))
-                    {
-                        LoadCompressedDocuments(path, ws, projectInfo.Id, filters);
-                    }
-                    else
-                    {
-                        LoadFolderDocuments(path, ws, projectInfo.Id, filters);
-                    }
+                    await DownloadDocumentsAsync(path, ws, projectInfo.Id, filters).ConfigureAwait(false);
+                }
+                else if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    LoadCompressedDocuments(path, ws, projectInfo.Id, filters);
+                }
+                else
+                {
+                    LoadFolderDocuments(path, ws, projectInfo.Id, filters);
                 }
             }
+
             Console.WriteLine("Compiling...");
-            var project = ws.CurrentSolution.Projects.Single();
-            List<MetadataReference> metadata = new List<MetadataReference>();
-            if (assemblies != null)
+            var project = ws.CurrentSolution.Projects.Single()
+                .WithParseOptions(new CSharpParseOptions(ParseLanguageVersion(langVersion), DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
+            foreach (var metadataReference in metadataReferences)
+                project = project.AddMetadataReference(metadataReference);
+
+            return await project.GetCompilationAsync().ConfigureAwait(false);
+        }
+
+        private async Task<IReadOnlyList<CompilationInput>> LoadProjectCompilationsAsync(IEnumerable<string> projectPaths, IEnumerable<MetadataReference> extraReferences, string targetFramework, IEnumerable<string> preprocessors)
+        {
+            var references = extraReferences.ToArray();
+            var compilationInputs = new List<CompilationInput>();
+            foreach (var projectPath in projectPaths)
             {
-                foreach (var assm in assemblies)
-                {
-                    IEnumerable<FileInfo> files = Enumerable.Empty<FileInfo>();
-                    if (File.Exists(assm))
-                    {
-                        files = new FileInfo[] { new FileInfo(assm) };
-                    }
-                    else
-                    {
-                        string recursive = Path.DirectorySeparatorChar + "**" + Path.DirectorySeparatorChar;
-                        bool isRecursive = false;
-                        var d = assm;
-                        var fn = Path.GetFileName(assm);
-                        if (d.Contains(recursive))
-                        {
-                            d = d.Substring(0, d.IndexOf(recursive));
-                            isRecursive = true;
-                        }
-                        else if (Directory.Exists(d))
-                        {
-                            fn = null;
-                        }
-                        else
-                        {
-                            d = Path.GetDirectoryName(d);
-                        }
-                        var dir = new DirectoryInfo(d);
-                        if (!dir.Exists)
-                            throw new DirectoryNotFoundException(d);
-                        if (string.IsNullOrEmpty(fn))
-                        {
-                            files = dir.GetFiles("*.dll", isRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
-                        }
-                        else
-                        {
-                            var di = new DirectoryInfo(d);
-                            files = dir.GetFiles(fn, isRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
-                        }
-                    }
-                    foreach (var item in files)
-                    {
-                        var metaref = MetadataReference.CreateFromFile(item.FullName);
-                        project = project.AddMetadataReference(metaref);
-                        metadata.Add(metaref);
-                    }
-                }
+                await ValidateTargetFrameworkAsync(projectPath, targetFramework).ConfigureAwait(false);
+                Console.WriteLine("Compiling...");
+                var projectEvaluation = await LoadProjectEvaluationAsync(projectPath, targetFramework).ConfigureAwait(false);
+                var compilation = await CreateAdhocCompilationAsync(
+                    projectEvaluation.CompileFiles,
+                    projectEvaluation.PreprocessorSymbols.Concat(preprocessors ?? Array.Empty<string>()),
+                    null,
+                    projectEvaluation.ReferencePaths.Select(path => MetadataReference.CreateFromFile(path)).Concat(references),
+                    projectEvaluation.LangVersion).ConfigureAwait(false);
+                compilationInputs.Add(new CompilationInput(compilation, new List<MetadataReference>()));
             }
 
-            
-            if (referenceAssemblies != null)
+            return compilationInputs;
+        }
+
+        private async Task<CompilationInput> CreateAssemblyCompilationAsync(IEnumerable<MetadataReference> assemblies, IEnumerable<MetadataReference> supportReferences, IEnumerable<string> preprocessors)
+        {
+            var ws = new AdhocWorkspace();
+            var solutionInfo = SolutionInfo.Create(SolutionId.CreateNewId(), VersionStamp.Default);
+            ws.AddSolution(solutionInfo);
+            var projectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Default, "AssemblyMetadata", "AssemblyMetadata", LanguageNames.CSharp);
+            ws.AddProject(projectInfo);
+
+            var project = ws.CurrentSolution.Projects.Single()
+                .WithParseOptions(new CSharpParseOptions(LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
+            foreach (var metadataReference in assemblies.Concat(supportReferences))
+                project = project.AddMetadataReference(metadataReference);
+
+            Console.WriteLine("Compiling...");
+            var compilation = await project.GetCompilationAsync().ConfigureAwait(false);
+            return new CompilationInput(compilation, assemblies.ToList());
+        }
+
+        private static List<MetadataReference> ResolveMetadataReferences(IEnumerable<string> assemblies)
+        {
+            var metadata = new List<MetadataReference>();
+            if (assemblies == null)
+                return metadata;
+
+            foreach (var assm in assemblies)
             {
-                foreach (var refasm in referenceAssemblies)
-                {
-                    if (File.Exists(refasm))
-                    {
-                        project = project.WithParseOptions(new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest, DocumentationMode.Parse, SourceCodeKind.Regular, preprocessors));
-                        var metaref = MetadataReference.CreateFromFile(refasm);
-                        project = project.AddMetadataReference(metaref);
-                    }
-                }
+                foreach (var file in ResolveAssemblyFiles(assm))
+                    metadata.Add(MetadataReference.CreateFromFile(file.FullName));
             }
 
-            var comp = await project.GetCompilationAsync().ConfigureAwait(false);
-            return (comp, metadata);
+            return metadata;
+        }
+
+        private static IEnumerable<FileInfo> ResolveAssemblyFiles(string assm)
+        {
+            IEnumerable<FileInfo> files = Enumerable.Empty<FileInfo>();
+            if (File.Exists(assm))
+            {
+                files = new FileInfo[] { new FileInfo(assm) };
+            }
+            else
+            {
+                string recursive = Path.DirectorySeparatorChar + "**" + Path.DirectorySeparatorChar;
+                bool isRecursive = false;
+                var d = assm;
+                var fn = Path.GetFileName(assm);
+                if (d.Contains(recursive))
+                {
+                    d = d.Substring(0, d.IndexOf(recursive, StringComparison.Ordinal));
+                    isRecursive = true;
+                }
+                else if (Directory.Exists(d))
+                {
+                    fn = null;
+                }
+                else
+                {
+                    d = Path.GetDirectoryName(d);
+                }
+                var dir = new DirectoryInfo(d);
+                if (!dir.Exists)
+                    throw new DirectoryNotFoundException(d);
+                files = string.IsNullOrEmpty(fn)
+                    ? dir.GetFiles("*.dll", isRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                    : dir.GetFiles(fn, isRecursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+            }
+
+            return files;
+        }
+
+        private static bool IsProjectFile(string path) => path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
+
+        private static async Task ValidateTargetFrameworkAsync(string projectPath, string targetFramework)
+        {
+            var output = await RunDotNetAsync(new[]
+            {
+                "msbuild",
+                projectPath,
+                "-nologo",
+                "-verbosity:quiet",
+                "-getProperty:TargetFramework",
+                "-getProperty:TargetFrameworks"
+            }).ConfigureAwait(false);
+
+            using var document = JsonDocument.Parse(ExtractJson(output));
+            var properties = document.RootElement.GetProperty("Properties");
+            var targetFrameworks = new[]
+                {
+                    properties.TryGetProperty("TargetFramework", out var targetFrameworkProperty) ? targetFrameworkProperty.GetString() : null,
+                    properties.TryGetProperty("TargetFrameworks", out var targetFrameworksProperty) ? targetFrameworksProperty.GetString() : null
+                }
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .SelectMany(v => v.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                .Select(t => t.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (targetFrameworks.Length <= 1)
+            {
+                if (targetFrameworks.Length == 1 && !string.IsNullOrWhiteSpace(targetFramework) && !targetFrameworks[0].Equals(targetFramework, StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException($"Project '{projectPath}' targets '{targetFrameworks[0]}', not '{targetFramework}'.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetFramework))
+                throw new ArgumentException($"Project '{projectPath}' targets multiple frameworks. Specify /tfm.");
+
+            if (!targetFrameworks.Contains(targetFramework, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentException($"Project '{projectPath}' does not target '{targetFramework}'.");
+        }
+
+        private static async Task<ProjectEvaluation> LoadProjectEvaluationAsync(string projectPath, string targetFramework)
+        {
+            await RestoreProjectAsync(projectPath, targetFramework).ConfigureAwait(false);
+
+            var arguments = new List<string>
+            {
+                "msbuild",
+                projectPath,
+                "-nologo",
+                "-verbosity:quiet",
+                "-target:ResolveReferences",
+                "-getProperty:TargetFramework",
+                "-getProperty:DefineConstants",
+                "-getProperty:LangVersion",
+                "-getItem:Compile",
+                "-getItem:ReferencePath"
+            };
+            if (!string.IsNullOrWhiteSpace(targetFramework))
+                arguments.Add($"-property:TargetFramework={targetFramework}");
+
+            var output = await RunDotNetAsync(arguments).ConfigureAwait(false);
+            using var document = JsonDocument.Parse(ExtractJson(output));
+            var root = document.RootElement;
+            var properties = root.GetProperty("Properties");
+            var items = root.GetProperty("Items");
+
+            var compileFiles = items.TryGetProperty("Compile", out var compileItemArray)
+                ? compileItemArray.EnumerateArray()
+                    .Select(i => i.GetProperty("FullPath").GetString())
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray()
+                : Array.Empty<string>();
+
+            var referencePaths = items.TryGetProperty("ReferencePath", out var referenceItemArray)
+                ? referenceItemArray.EnumerateArray()
+                    .Select(i => i.GetProperty("Identity").GetString())
+                    .Where(p => !string.IsNullOrWhiteSpace(p) && File.Exists(p))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray()
+                : Array.Empty<string>();
+
+            var preprocessorSymbols = properties.TryGetProperty("DefineConstants", out var defineConstants)
+                ? defineConstants.GetString().Split(';', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToArray()
+                : Array.Empty<string>();
+
+            return new ProjectEvaluation(
+                compileFiles,
+                referencePaths,
+                preprocessorSymbols,
+                properties.TryGetProperty("LangVersion", out var langVersion) ? langVersion.GetString() : null);
+        }
+
+        private static async Task RestoreProjectAsync(string projectPath, string targetFramework)
+        {
+            var arguments = new List<string> { "restore", projectPath, "--verbosity", "quiet" };
+            if (!string.IsNullOrWhiteSpace(targetFramework))
+                arguments.Add($"-p:TargetFramework={targetFramework}");
+            await RunDotNetAsync(arguments).ConfigureAwait(false);
+        }
+
+        private static async Task<string> RunDotNetAsync(IEnumerable<string> arguments)
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            foreach (var argument in arguments)
+                process.StartInfo.ArgumentList.Add(argument);
+
+            process.Start();
+            var standardOutput = process.StandardOutput.ReadToEndAsync();
+            var standardError = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync().ConfigureAwait(false);
+
+            var output = await standardOutput.ConfigureAwait(false);
+            var error = await standardError.ConfigureAwait(false);
+            if (process.ExitCode != 0)
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? output : error.Trim());
+
+            return output;
+        }
+
+        private static string ExtractJson(string output)
+        {
+            var startIndex = output.IndexOf('{');
+            var endIndex = output.LastIndexOf('}');
+            if (startIndex < 0 || endIndex < startIndex)
+                throw new InvalidOperationException("Unable to parse MSBuild evaluation output.");
+
+            return output.Substring(startIndex, endIndex - startIndex + 1);
+        }
+
+        private static LanguageVersion ParseLanguageVersion(string langVersion)
+        {
+            if (string.IsNullOrWhiteSpace(langVersion) || !LanguageVersionFacts.TryParse(langVersion, out var parsed))
+                return LanguageVersion.Latest;
+
+            return parsed;
+        }
+
+        internal sealed class CompilationInput
+        {
+            internal CompilationInput(Compilation compilation, List<MetadataReference> metadataReferences)
+            {
+                Compilation = compilation ?? throw new ArgumentNullException(nameof(compilation));
+                MetadataReferences = metadataReferences ?? throw new ArgumentNullException(nameof(metadataReferences));
+            }
+
+            internal Compilation Compilation { get; }
+
+            internal List<MetadataReference> MetadataReferences { get; }
+        }
+
+        private sealed class ProjectEvaluation
+        {
+            internal ProjectEvaluation(string[] compileFiles, string[] referencePaths, string[] preprocessorSymbols, string langVersion)
+            {
+                CompileFiles = compileFiles;
+                ReferencePaths = referencePaths;
+                PreprocessorSymbols = preprocessorSymbols;
+                LangVersion = langVersion;
+            }
+
+            internal string[] CompileFiles { get; }
+
+            internal string[] ReferencePaths { get; }
+
+            internal string[] PreprocessorSymbols { get; }
+
+            internal string LangVersion { get; }
         }
 
         private async Task DownloadDocumentsAsync(string uri, AdhocWorkspace ws, ProjectId projectId, Regex[] filters)
@@ -309,12 +552,12 @@ namespace Generator
 
         //************* Difference comparisons *******************/
 
-        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null)
+        internal async Task ProcessDiffs(string[] oldPaths, string[] newPaths, IEnumerable<string> oldAssemblies, IEnumerable<string> newAssemblies, IEnumerable<string> preprocessors = null, Regex[] filters = null, string[] referenceAssemblies = null, string[] objectFilters = null, string targetFramework = null)
         {
-            var oldCompilation = await CreateCompilationAsync(oldPaths, oldAssemblies, preprocessors, filters, referenceAssemblies);
-            var newCompilation = await CreateCompilationAsync(newPaths, newAssemblies, preprocessors, filters, referenceAssemblies);
-            var oldSymbols = GetSymbols(oldCompilation.compilation, oldCompilation.metadata);
-            var newSymbols = GetSymbols(newCompilation.compilation, newCompilation.metadata);
+            var oldCompilation = await CreateCompilationAsync(oldPaths, oldAssemblies, preprocessors, filters, referenceAssemblies, targetFramework);
+            var newCompilation = await CreateCompilationAsync(newPaths, newAssemblies, preprocessors, filters, referenceAssemblies, targetFramework);
+            var oldSymbols = GetSymbols(oldCompilation);
+            var newSymbols = GetSymbols(newCompilation);
             var symbols = GetChangedSymbols(newSymbols, oldSymbols);
             int i = 0;
             foreach (var generator in generators.OfType<ICodeDiffGenerator>())

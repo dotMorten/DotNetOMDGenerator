@@ -27,7 +27,6 @@ namespace Generator
 
     class Program
     {
-
         static async Task Main(string[] args)
         {
             await RunAsync(args).ConfigureAwait(false);
@@ -138,9 +137,9 @@ namespace Generator
                     GeneratorSettings.OutputLocation = System.IO.Path.Combine(GeneratorSettings.OutputLocation, "OMD");
 
                 if (oldSource != null || compareAssemblies != null)
-                    await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
+                    await g.ProcessDiffs(oldSource, source, compareAssemblies, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes, tfm);
                 else
-                    await g.Process(source, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes);
+                    await g.Process(source, assemblies, preprocessors, filters.ToArray(), referenceAssemblies, filterTypes, tfm);
             }
 
             if(System.Diagnostics.Debugger.IsAttached)
@@ -352,7 +351,7 @@ namespace Generator
             Console.WriteLine("\nUsage:");
             Console.WriteLine(" --source=[source folder] --compareSource=[oldSourceFolder] --gitRepo=[repo path or url] --sourceRef=[commit|branch|tag] --compareRef=[commit|branch|tag] --preprocessors=[defines] --output=[out location] --format=[html,md] --filter=[regex] --showPrivate --showInternal");
             Console.WriteLine("\nRequired parameters (one or more):");
-            Console.WriteLine("  source               Specifies the folder of source files to include for the object model.\n                       Separate with ; for multiple folders");
+            Console.WriteLine("  source               Specifies folders, source files, or .csproj files to include for the object model.\n                       Separate with ; for multiple items");
             Console.WriteLine("  assemblies           Specifies a set of assemblies to include for the object model.\n                       Separate with ; for multiple assemblies");
             Console.WriteLine("\nOptional parameters:");
             Console.WriteLine("  compareSource        Specifies a folder to compare source and generate a diff model\n                       This can be useful for finding API changes or compare branches");
@@ -372,7 +371,7 @@ namespace Generator
             Console.WriteLine("  nuget                nuget packages to generate OMD for (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:13.0.0");
             Console.WriteLine("  compareNuget         nuget packages to compare versions with (separate multiple with semicolon). Example: /nuget=Newtonsoft.Json:12.0.0");
             Console.WriteLine("  nugetDependencies    Dependency package ID patterns to include for nuget/compareNuget. Use ; to separate multiple patterns and prefix ! to exclude. Example: /nugetDependencies=Microsoft.WindowsAppSDK.*;!Microsoft.WindowsAppSDK.Tests.*");
-            Console.WriteLine("  tfm                  Target Framework to use against NuGet package. Example: /tfm=net8.0-windows10.0.19041.0");
+            Console.WriteLine("  tfm                  Target Framework to use against NuGet packages or multi-targeted source projects. Example: /tfm=net8.0-windows10.0.19041.0");
         }
     }
 }

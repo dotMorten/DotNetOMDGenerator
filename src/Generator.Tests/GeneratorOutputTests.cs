@@ -93,6 +93,30 @@ public sealed class GeneratorOutputTests
         public class ChangedType { public void NewMethod() { } }
         """;
 
+    private const string ProjectIncludedSource = """
+        namespace SampleNamespace;
+
+        public class IncludedType { }
+        """;
+
+    private const string ProjectExcludedSource = """
+        namespace SampleNamespace;
+
+        public class ExcludedType { }
+        """;
+
+    private const string Net8Source = """
+        namespace SampleNamespace;
+
+        public class Net8OnlyType { }
+        """;
+
+    private const string Net9Source = """
+        namespace SampleNamespace;
+
+        public class Net9OnlyType { }
+        """;
+
     [TestMethod]
     public async Task MarkdownOutput_IdentifiesAllSupportedDeclarationKinds()
     {
@@ -248,6 +272,106 @@ public sealed class GeneratorOutputTests
         StringAssert.Contains(markdown, "<b>public NewMethod();</b>");
         StringAssert.Contains(markdown, "<strike>public OldMethod();</strike>");
         StringAssert.Contains(markdown, "<b>public Invoke(string value);</b>");
+    }
+
+    [TestMethod]
+    public async Task MarkdownOutput_UsesProjectCompileItemsInsteadOfAllFolderFiles()
+    {
+        using var workspace = new TestWorkspace();
+        var projectDirectory = workspace.CreateDirectory("project");
+        workspace.WriteSource(projectDirectory, "Included.cs", ProjectIncludedSource);
+        workspace.WriteSource(projectDirectory, "Excluded.cs", ProjectExcludedSource);
+
+        var projectPath = Path.Combine(projectDirectory, "Sample.csproj");
+        workspace.WriteSource(projectDirectory, "Sample.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <Compile Remove="Excluded.cs" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var markdown = await GenerateCliMarkdownAsync(workspace, "project-output", $"/source={projectPath}");
+
+        StringAssert.Contains(markdown, "public class IncludedType");
+        Assert.IsFalse(markdown.Contains("ExcludedType", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task MarkdownOutput_UsesRequestedTargetFrameworkForMultiTargetProject()
+    {
+        using var workspace = new TestWorkspace();
+        var projectDirectory = workspace.CreateDirectory("multitarget");
+        workspace.WriteSource(projectDirectory, "Net8Only.cs", Net8Source);
+        workspace.WriteSource(projectDirectory, "Net9Only.cs", Net9Source);
+
+        var projectPath = Path.Combine(projectDirectory, "Sample.csproj");
+        workspace.WriteSource(projectDirectory, "Sample.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+                <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+              <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+                <Compile Include="Net8Only.cs" />
+              </ItemGroup>
+              <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+                <Compile Include="Net9Only.cs" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "multitarget-output",
+            $"/source={projectPath}",
+            "/tfm=net8.0");
+
+        StringAssert.Contains(markdown, "public class Net8OnlyType");
+        Assert.IsFalse(markdown.Contains("Net9OnlyType", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task MarkdownDiffOutput_ComparesCurrentProjectAgainstGitTag()
+    {
+        using var workspace = new TestWorkspace();
+        var repositoryDirectory = workspace.CreateDirectory("repo-project");
+        var projectDirectory = Path.Combine(repositoryDirectory, "src");
+        Directory.CreateDirectory(projectDirectory);
+        InitializeGitRepository(repositoryDirectory);
+
+        var projectPath = Path.Combine(projectDirectory, "Sample.csproj");
+        workspace.WriteSource(projectDirectory, "Sample.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+                <ImplicitUsings>disable</ImplicitUsings>
+                <Nullable>disable</Nullable>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        workspace.WriteSource(projectDirectory, "Types.cs", OldDiffSource);
+        CommitAll(repositoryDirectory, "baseline");
+        RunGit(repositoryDirectory, "tag", "baseline");
+
+        workspace.WriteSource(projectDirectory, "Types.cs", NewDiffSource);
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "git-project-diff",
+            $"/source={projectPath}",
+            "/compareRef=baseline");
+
+        StringAssert.Contains(markdown, "<b>public NewMethod();</b>");
+        StringAssert.Contains(markdown, "<strike>public OldMethod();</strike>");
     }
 
     private static async Task<string> GenerateMarkdownAsync(string source)
