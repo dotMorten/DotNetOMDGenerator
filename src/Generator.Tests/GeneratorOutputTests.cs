@@ -275,6 +275,37 @@ public sealed class GeneratorOutputTests
     }
 
     [TestMethod]
+    public async Task MarkdownOutput_LoadsSingleSourceRefFromRemoteGitRepository()
+    {
+        using var workspace = new TestWorkspace();
+        var repositoryDirectory = workspace.CreateDirectory("repo");
+        var sourceDirectory = Path.Combine(repositoryDirectory, "src");
+        Directory.CreateDirectory(sourceDirectory);
+        InitializeGitRepository(repositoryDirectory);
+
+        workspace.WriteSource(sourceDirectory, "Types.cs", SupportedTypesSource);
+        var commit = CommitAll(repositoryDirectory, "snapshot");
+
+        var remoteRepositoryDirectory = workspace.CreateDirectory("remote.git");
+        RunGit(workspace.RootPath, "init", "--bare", remoteRepositoryDirectory);
+
+        var remoteRepositoryUri = new Uri(remoteRepositoryDirectory).AbsoluteUri;
+        RunGit(repositoryDirectory, "remote", "add", "origin", remoteRepositoryUri);
+        RunGit(repositoryDirectory, "push", "origin", "HEAD");
+
+        var markdown = await GenerateCliMarkdownAsync(
+            workspace,
+            "git-remote-source",
+            "/source=src",
+            $"/gitRepo={remoteRepositoryUri}",
+            $"/sourceRef={commit}");
+
+        StringAssert.Contains(markdown, "public class SampleClass");
+        StringAssert.Contains(markdown, "public record SampleRecord");
+        Assert.IsFalse(markdown.Contains("<strike>", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public async Task MarkdownOutput_UsesProjectCompileItemsInsteadOfAllFolderFiles()
     {
         using var workspace = new TestWorkspace();

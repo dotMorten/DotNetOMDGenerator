@@ -53,8 +53,6 @@ namespace Generator
                 throw new ArgumentException("The source parameter is required when using sourceRef or compareRef.");
             if (compareSource != null && compareSource.Length > 0 && !string.IsNullOrWhiteSpace(compareRef))
                 throw new ArgumentException("compareSource can't be combined with compareRef.");
-            if (!string.IsNullOrWhiteSpace(sourceRef) && string.IsNullOrWhiteSpace(compareRef))
-                throw new ArgumentException("compareRef is required when sourceRef is specified.");
 
             var tempPaths = new List<string>();
             var repository = await ResolveRepositoryAsync(source, gitRepo, !string.IsNullOrWhiteSpace(sourceRef), tempPaths).ConfigureAwait(false);
