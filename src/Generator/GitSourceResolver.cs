@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Generator
@@ -44,6 +45,8 @@ namespace Generator
 
     internal static class GitSourceResolver
     {
+        private static readonly Regex ScpLikeSshRepositoryPattern = new Regex(@"^(?:[^@\s/:]+@)?[^:\s/\\]+:.+$", RegexOptions.Compiled);
+
         internal static async Task<GitResolvedSources> ResolveAsync(string[] source, string[] compareSource, string gitRepo, string sourceRef, string compareRef)
         {
             if (string.IsNullOrWhiteSpace(sourceRef) && string.IsNullOrWhiteSpace(compareRef))
@@ -242,17 +245,32 @@ namespace Generator
             return result.StandardOutput.Trim();
         }
 
-        private static bool IsRemoteRepository(string gitRepo)
+        internal static bool IsRemoteRepository(string gitRepo)
         {
-            if (!Uri.TryCreate(gitRepo, UriKind.Absolute, out var uri))
+            if (string.IsNullOrWhiteSpace(gitRepo) || Path.IsPathRooted(gitRepo))
                 return false;
 
-            return uri.Scheme == Uri.UriSchemeHttp
-                || uri.Scheme == Uri.UriSchemeHttps
-                || uri.Scheme == Uri.UriSchemeFile
-                || uri.Scheme == Uri.UriSchemeFtp
-                || uri.Scheme.Equals("git", StringComparison.OrdinalIgnoreCase)
-                || uri.Scheme.Equals("ssh", StringComparison.OrdinalIgnoreCase);
+            if (Uri.TryCreate(gitRepo, UriKind.Absolute, out var uri))
+            {
+                return uri.Scheme == Uri.UriSchemeHttp
+                    || uri.Scheme == Uri.UriSchemeHttps
+                    || uri.Scheme == Uri.UriSchemeFile
+                    || uri.Scheme == Uri.UriSchemeFtp
+                    || uri.Scheme.Equals("git", StringComparison.OrdinalIgnoreCase)
+                    || uri.Scheme.Equals("ssh", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return IsScpLikeSshRepository(gitRepo);
+        }
+
+        private static bool IsScpLikeSshRepository(string gitRepo)
+        {
+            if (gitRepo.Contains("://", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return ScpLikeSshRepositoryPattern.IsMatch(gitRepo);
         }
 
         private static string CreateTempDirectory()
